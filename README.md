@@ -10,15 +10,15 @@
 [![License: MIT](https://img.shields.io/github/license/CadworkNA/vulnscan)](LICENSE)
 
 `vulnscan` finds known vulnerabilities in the files we ship to customers. It checks out SVN repositories
-(or scans any local folder), unpacks every installer and archive, identifies every third-party component —
-including libraries compiled into first-party DLLs — and matches them against CVE, GitHub and OSV advisories,
+(or scans any local folder), unpacks every installer and archive, identifies every third-party component
+(including libraries compiled into first-party DLLs) and matches them against CVE, GitHub and OSV advisories,
 the CISA **Known Exploited Vulnerabilities** catalog, EPSS exploit scores and end-of-life data. The result is
 an Excel report, optionally a CycloneDX SBOM and an email. Everything runs in one container, so it works the
 same on Windows (Podman/Docker Desktop), Linux and CI.
 
 It is built to **fail closed**: a run is only reported as complete when every repository was scanned by every
 engine, the vulnerability data was current and each engine passed a self-test. Anything else is reported,
-loudly, as incomplete — never as an all-clear.
+loudly, as incomplete, never as an all-clear.
 
 <p align="center"><img src="docs/images/terminal-results.png" alt="Results summary printed at the end of a scan" width="820"></p>
 
@@ -69,7 +69,7 @@ checkout of a large repository takes a while (progress, size and ETA are shown);
 ## What it reports
 
 Every run writes `vulnscan_<repos>_<timestamp>.xlsx` to the mounted folder, plus an evidence folder
-`vulnscan-results/<timestamp>_<repos>/` with the full log, the SBOMs and the raw output of every scanner — so any
+`vulnscan-results/<timestamp>_<repos>/` with the full log, the SBOMs and the raw output of every scanner, so any
 finding can be traced back to the tool and database that produced it.
 
 | Sheet | Contents |
@@ -95,7 +95,7 @@ finding can be traced back to the tool and database that produced it.
 | **P4** | Low, negligible or unknown |
 
 **Confidence** is *high* when a component was identified exactly (package metadata, version banner) and *medium*
-for CPE/name-based matches, which can include false positives — e.g. for vendor builds that backport fixes. When
+for CPE/name-based matches, which can include false positives (e.g. for vendor builds that backport fixes). When
 engines disagree, the higher severity wins: for a disclosure obligation, over-reporting with a confidence flag is
 preferable to missing something.
 
@@ -122,7 +122,7 @@ flowchart LR
 | Engine | Finds | Data |
 |---|---|---|
 | **Syft → Grype** | Python, npm, .NET, Java, Go, Rust… packages, plus Syft's binary classifiers | Anchore vulnerability DB: NVD, GitHub advisories, vendor feeds, with CISA KEV and EPSS |
-| **Binary identification → Grype** | Native libraries in DLL/EXE/PYD files — from the Windows version resource and from version strings embedded in the binary, which also catches libraries **statically linked into first-party DLLs** (OpenSSL, zlib, libpng, libjpeg-turbo, libtiff, curl, expat, SQLite, Python, Qt, FFmpeg, 7-Zip, bzip2, Chromium/CEF, Open Design Alliance, …) | NVD CPE data in the same DB |
+| **Binary identification → Grype** | Native libraries in DLL/EXE/PYD files, identified from the Windows version resource and from version strings embedded in the binary, which also catches libraries **statically linked into first-party DLLs** (OpenSSL, zlib, libpng, libjpeg-turbo, libtiff, curl, expat, SQLite, Python, Qt, FFmpeg, 7-Zip, bzip2, Chromium/CEF, Open Design Alliance, …) | NVD CPE data in the same DB |
 | **osv-scanner** | Independent second opinion on packages, with its own extractors | OSV.dev, downloaded for offline matching (no package list leaves the machine) |
 | **retire.js** | Vulnerable JavaScript libraries in standalone `.js` files | retire.js repository |
 | **End of life** | Unsupported Python, OpenSSL, Qt, Node.js, … and Visual C++ 2005–2013 runtimes | endoflife.date, Microsoft lifecycle |
@@ -172,7 +172,7 @@ docker compose run --rm scan --tools_2026       # one-off run with the same conf
 ```
 
 The schedule is evaluated in the container's time zone (`TZ`). A run that crashes or cannot produce a report sends
-a **"SCAN FAILED"** email instead — a scheduled scan never fails silently.
+a **"SCAN FAILED"** email instead: a scheduled scan never fails silently.
 
 <p align="center"><img src="docs/images/email.png" alt="Email summary" width="560"></p>
 
@@ -201,7 +201,7 @@ Disk: the cache volume holds the checkouts (the size of the repositories) plus a
 ## Trust: fail-closed behaviour, exit codes, verification
 
 Many scanners report "0 vulnerabilities" when they actually scanned nothing. vulnscan treats all of these as an
-**incomplete** scan — shown in red in the terminal, the report and the email subject, with exit code 3:
+**incomplete** scan, shown in red in the terminal, the report and the email subject, with exit code 3:
 
 - a repository could not be checked out/updated, or contained no files;
 - a scanner failed, exited with an error, or produced missing, truncated or malformed output;
@@ -209,15 +209,15 @@ Many scanners report "0 vulnerabilities" when they actually scanned nothing. vul
 - an engine failed its **self-test**: before every scan each engine must detect a known-vulnerable canary
   (OpenSSL 1.1.1k → CVE-2021-3711, requests 2.19.1 → CVE-2018-18074, jQuery 1.12.4 → CVE-2020-11023);
 - end-of-life data could not be retrieved;
-- an archive could not be extracted, or only partly (e.g. password-protected members) — its contents were not
-  scanned — unless it is an [accepted coverage gap](#accepted-coverage-gaps).
+- an archive could not be extracted, or only partly (e.g. password-protected members), so its contents were not
+  scanned, unless it is an [accepted coverage gap](#accepted-coverage-gaps).
 
 | Exit code | Meaning |
 |---|---|
-| 0 | complete — every check passed |
+| 0 | complete: every check passed |
 | 1 | complete, but findings reached the `--fail-on` threshold |
 | 2 | invalid arguments or configuration |
-| 3 | **incomplete or failed** — not an all-clear |
+| 3 | **incomplete or failed**, not an all-clear |
 | 4 | complete, but the email could not be sent |
 
 **Verifying the image.** Images published by CI carry Sigstore-signed build provenance and an SBOM attestation; each
@@ -334,7 +334,7 @@ podman run --rm -v "$PWD:/src:ro" -e PYTHONPATH=/src --entrypoint sh vulnscan -c
 run the tests, and refresh the fixtures if the output format changed. **Adding an identification rule:** extend
 `pe.py` (version resources) or `binsig.py` (embedded strings, NVD vendor/product names) and add a test case.
 
-**README images** are generated from a demo scan of public artifacts — never from real scan data.
+**README images** are generated from a demo scan of public artifacts, never from real scan data.
 
 ## Limitations
 
