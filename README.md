@@ -2,6 +2,12 @@
 
 # vulnscan
 
+[![Build](https://github.com/CadworkNA/vulnscan/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/CadworkNA/vulnscan/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/CadworkNA/vulnscan?sort=semver)](https://github.com/CadworkNA/vulnscan/releases/latest)
+[![Image](https://img.shields.io/badge/image-ghcr.io%2Fcadworkna%2Fvulnscan-blue?logo=docker&logoColor=white)](https://github.com/CadworkNA/vulnscan/pkgs/container/vulnscan)
+[![Provenance](https://img.shields.io/badge/provenance-Sigstore%20attested-blueviolet)](#trust-fail-closed-behaviour-exit-codes-verification)
+[![License: MIT](https://img.shields.io/github/license/CadworkNA/vulnscan)](LICENSE)
+
 `vulnscan` finds known vulnerabilities in the files we ship to customers. It checks out SVN repositories
 (or scans any local folder), unpacks every installer and archive, identifies every third-party component —
 including libraries compiled into first-party DLLs — and matches them against CVE, GitHub and OSV advisories,
