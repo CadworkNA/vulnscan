@@ -212,7 +212,7 @@ Many scanners report "0 vulnerabilities" when they actually scanned nothing. vul
 | 3 | **incomplete or failed** — not an all-clear |
 | 4 | complete, but the e-mail could not be sent |
 
-**Verifying the image.** Images published by CI carry Sigstore-signed build provenance and an SBOM attestation:
+**Verifying the image.** Once the repository is public, images published by CI carry Sigstore-signed build provenance and an SBOM attestation (GitHub only offers these for public repositories on our plan):
 
 ```sh
 gh attestation verify oci://ghcr.io/cadworkna/vulnscan:<tag> --owner CadworkNA
