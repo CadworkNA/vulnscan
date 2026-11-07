@@ -30,7 +30,8 @@ Lint: `uv run --with ruff ruff check .` (line length 120, rules in `pyproject.to
 ## Conventions
 
 - **GitHub Actions** are pinned by full commit SHA with the version as a comment (`@<sha> # v1.2.3`); pick a
-  release at least 14 days old (matches the Dependabot cooldown).
+  release at least 14 days old (matches the Dependabot cooldown). Base images in the `Containerfile` are pinned
+  as `tag@sha256:<index digest>`; Dependabot updates both.
 - **Scanner upgrade:** version and SHA-256 in the `Containerfile` (from the release's checksum file), run the tests,
   refresh `tests/fixtures` if the output format changed. Contract tests must keep parsing real scanner output.
 - **Identification rules** go in `pe.py` (version resources) or `binsig.py` (embedded strings), each with a test.

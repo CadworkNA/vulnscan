@@ -6,6 +6,7 @@
 [![Release](https://img.shields.io/github/v/release/CadworkNA/vulnscan?sort=semver)](https://github.com/CadworkNA/vulnscan/releases/latest)
 [![Image](https://img.shields.io/badge/image-ghcr.io%2Fcadworkna%2Fvulnscan-blue?logo=docker&logoColor=white)](https://github.com/CadworkNA/vulnscan/pkgs/container/vulnscan)
 [![Provenance](https://img.shields.io/badge/provenance-Sigstore%20attested-blueviolet)](#trust-fail-closed-behaviour-exit-codes-verification)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/CadworkNA/vulnscan/badge)](https://scorecard.dev/viewer/?uri=github.com/CadworkNA/vulnscan)
 [![License: MIT](https://img.shields.io/github/license/CadworkNA/vulnscan)](LICENSE)
 
 `vulnscan` finds known vulnerabilities in the files we ship to customers. It checks out SVN repositories
