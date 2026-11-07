@@ -6,7 +6,7 @@
 #
 #   podman build -t vulnscan .        (or: docker build -t vulnscan .)
 
-FROM ghcr.io/astral-sh/uv:0.12.19 AS uv
+FROM ghcr.io/astral-sh/uv:0.13.7 AS uv
 
 FROM docker.io/library/debian:trixie-slim
 
