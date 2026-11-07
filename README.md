@@ -227,6 +227,13 @@ Many scanners report "0 vulnerabilities" when they actually scanned nothing. vul
 gh attestation verify oci://ghcr.io/cadworkna/vulnscan:1.0.0 --owner CadworkNA
 ```
 
+Releases after 1.0.0 also sign the files they attach (image SBOM, self-scan): the `vulnscan-<version>.sigstore.json`
+bundle next to them lets you verify a download without looking the attestation up on GitHub:
+
+```sh
+gh attestation verify vulnscan.cdx.json --owner CadworkNA --bundle vulnscan-<version>.sigstore.json
+```
+
 CI also scans the image itself and fails on any actively exploited (KEV) vulnerability, unless it is listed with a
 justification and an expiry date in [`.github/selfscan-exceptions.json`](.github/selfscan-exceptions.json).
 

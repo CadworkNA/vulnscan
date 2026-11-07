@@ -217,8 +217,9 @@ jobs:
           push-to-registry: true
 
   # A v* tag becomes a GitHub release once its image is published and attested: notes generated from the changes
-  # since the previous release, headed by the image tags, digest and verify command, with the image SBOM and the
-  # self-scan attached. It is marked Latest only when the image got :latest (not for a prerelease or a backport).
+  # since the previous release, headed by the image tags, digest and verify commands, with the image SBOM and the
+  # self-scan attached together with the Sigstore bundle that signs them (SLSA build provenance).
+  # It is marked Latest only when the image got :latest (not for a prerelease or a backport).
   release:
     needs: image
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
@@ -227,6 +228,8 @@ jobs:
 
     permissions:
       contents: write
+      id-token: write      # Sigstore signing of the release files
+      attestations: write
 
     steps:
       - name: Download SBOM and self-scan
@@ -235,14 +238,25 @@ jobs:
           name: vulnscan-sbom-${{ github.sha }}
           path: sbom
 
+      - name: Attest the release files (Sigstore)
+        id: attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            sbom/vulnscan.cdx.json
+            sbom/self-scan.json
+
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
           IMAGE: ghcr.io/cadworkna/vulnscan
           TAGS: ${{ needs.image.outputs.tags }}
           DIGEST: ${{ needs.image.outputs.digest }}
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
         run: |
           version="${GITHUB_REF_NAME#v}"
+          bundle="vulnscan-$version.sigstore.json"
+          cp "$BUNDLE" "sbom/$bundle"
           t='`'
           tag_list=$(tr ',' '\n' <<< "$TAGS" | sed "s|^$IMAGE:\(.*\)|$t:\1$t|" | paste -sd ' ')
           cat > notes.md <<EOF
@@ -259,7 +273,11 @@ jobs:
           ${t}${t}${t}
 
           Attached: ${t}vulnscan.cdx.json${t} (CycloneDX SBOM of the image) and ${t}self-scan.json${t} (Grype scan of
-          the image when it was built).
+          the image when it was built), signed by ${t}$bundle${t} (Sigstore bundle, SLSA build provenance):
+
+          ${t}${t}${t}sh
+          gh attestation verify vulnscan.cdx.json --owner $GITHUB_REPOSITORY_OWNER --bundle $bundle
+          ${t}${t}${t}
 
           EOF
           flags=(--latest=false)
@@ -267,4 +285,4 @@ jobs:
           [[ "$version" == *-* ]] && flags+=(--prerelease)
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag \
             --title "vulnscan $version" --notes-file notes.md --generate-notes "${flags[@]}" \
-            sbom/vulnscan.cdx.json sbom/self-scan.json
+            sbom/vulnscan.cdx.json sbom/self-scan.json "sbom/$bundle"
