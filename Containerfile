@@ -1,7 +1,7 @@
 # vulnscan - vulnerability scanner for shipped SVN deliverables
 #
 # Every third-party scanner is pinned to an exact version and checksum-verified,
-# base images are pinned by digest (Dependabot proposes new ones), and Python
+# base images are pinned by digest, and Python
 # dependencies are resolved as of a fixed date, so a report can always be traced
 # back to an exact, rebuildable toolchain.
 #
