@@ -6,6 +6,7 @@
 [![Release](https://img.shields.io/github/v/release/CadworkNA/vulnscan?sort=semver)](https://github.com/CadworkNA/vulnscan/releases/latest)
 [![License: MIT](https://img.shields.io/github/license/CadworkNA/vulnscan)](LICENSE)<br>
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/CadworkNA/vulnscan/badge)](https://scorecard.dev/viewer/?uri=github.com/CadworkNA/vulnscan)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16419/badge)](https://www.bestpractices.dev/projects/16419)
 [![Provenance](https://img.shields.io/badge/provenance-Sigstore%20attested-blueviolet)](#trust-fail-closed-behaviour-exit-codes-verification)
 [![Image](https://img.shields.io/badge/image-ghcr.io%2Fcadworkna%2Fvulnscan-blue?logo=docker&logoColor=white)](https://github.com/CadworkNA/vulnscan/pkgs/container/vulnscan)
 
@@ -336,6 +337,9 @@ run the tests, and refresh the fixtures if the output format changed. **Adding a
 `pe.py` (version resources) or `binsig.py` (embedded strings, NVD vendor/product names) and add a test case.
 
 **README images** are generated from a demo scan of public artifacts, never from real scan data.
+
+**Contributing:** see [CONTRIBUTING.md](CONTRIBUTING.md) for the requirements a pull request must meet and the test
+policy.
 
 ## Limitations
 
