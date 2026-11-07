@@ -225,10 +225,10 @@ Many scanners report "0 vulnerabilities" when they actually scanned nothing. vul
 [release](https://github.com/CadworkNA/vulnscan/releases) lists its image digest and the image SBOM:
 
 ```sh
-gh attestation verify oci://ghcr.io/cadworkna/vulnscan:1.0.0 --owner CadworkNA
+gh attestation verify oci://ghcr.io/cadworkna/vulnscan:1.1.1 --owner CadworkNA
 ```
 
-Releases after 1.0.0 also sign the files they attach (image SBOM, self-scan): the `vulnscan-<version>.sigstore.json`
+Each release also signs the files it attaches (image SBOM, self-scan): the `vulnscan-<version>.sigstore.json`
 bundle next to them lets you verify a download without looking the attestation up on GitHub:
 
 ```sh
