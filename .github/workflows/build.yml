@@ -32,8 +32,9 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id-token: write       # Sigstore signing of attestations
+      id-token: write           # Sigstore signing of attestations
       attestations: write
+      artifact-metadata: write  # storage record linking the image to this repository
 
     env:
       IMAGE: ghcr.io/cadworkna/vulnscan
@@ -164,7 +165,7 @@ jobs:
       # once the repository is public. (The BuildKit SBOM/provenance above are pushed in every case.)
       - name: Attest build provenance (Sigstore)
         if: env.PUSH == 'true' && github.event.repository.visibility == 'public'
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.push.outputs.digest }}
@@ -172,7 +173,7 @@ jobs:
 
       - name: Attest SBOM (Sigstore)
         if: env.PUSH == 'true' && github.event.repository.visibility == 'public'
-        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.push.outputs.digest }}

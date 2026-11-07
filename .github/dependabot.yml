@@ -1,10 +1,16 @@
 version: 2
 updates:
+  # A new release is only proposed once it is 14 days old: long enough for a broken or
+  # compromised release to be noticed and pulled upstream before it reaches the toolchain.
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 14
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 14
