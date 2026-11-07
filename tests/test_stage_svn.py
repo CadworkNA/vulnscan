@@ -63,6 +63,27 @@ def test_build_reports_broken_archives(tmp_path, stage_root):
     assert [a for a, _ in res.archives_failed] == ["broken.zip"]
 
 
+@needs_7z
+def test_extraction_folder_collision_is_a_coverage_gap(tmp_path, stage_root):
+    """A crafted archive holding both 'x.zip' and a folder 'x.zip!' must not get merged contents."""
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "outer.zip").write_bytes(_zip({"x.zip": _zip({"a.dll": b"MZ a"}), "x.zip!/b.dll": b"MZ b"}))
+    res = stage.build("demo", src, jobs=2, hash_files=False)
+    assert [a for a, _ in res.archives_failed] == ["outer.zip!/x.zip"]
+    assert "collides" in res.archives_failed[0][1]
+
+
+@needs_7z
+def test_parallel_extraction_is_deterministic(tmp_path, stage_root):
+    src = tmp_path / "src"
+    src.mkdir()
+    for i in range(12):
+        (src / f"p{i:02}.zip").write_bytes(_zip({f"lib{i}.dll": b"MZ" + bytes([i]) * 64}))
+    res = stage.build("demo", src, jobs=4, hash_files=False)
+    assert res.archives_ok == [f"p{i:02}.zip" for i in range(12)]
+
+
 def test_display_path(tmp_path):
     root = tmp_path
     assert stage.display_path(root, str(root / "files" / "a" / "b.dll")) == "a/b.dll"
@@ -101,6 +122,13 @@ def test_sync_checkout_then_update(tmp_path, local_repo, monkeypatch):
     assert r.revision == "2"
     assert (r.checkout / "a.dll").read_bytes() == b"MZ v2"
     assert not (r.checkout / "stray.txt").exists()
+
+
+@needs_svn
+def test_remote_listing_gives_file_sizes(tmp_path, local_repo):
+    url, _ = local_repo
+    r = svn.Repo(name="demo", url=url, checkout=tmp_path / "cache" / "demo")
+    assert svn._remote_listing(r, *svn._auth_args()) == {"a.dll": 5}
 
 
 @needs_svn

@@ -15,13 +15,13 @@ import re
 import shutil
 import subprocess
 import time
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, ThreadPoolExecutor, as_completed, wait
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import binsig
 from . import pe as pe_mod
-from .util import CACHE, fmt_size, log
+from .util import CACHE, MARK_DONE, fmt_dur, fmt_size, log, progress_text
 
 STAGE = CACHE / "stage"
 
@@ -46,6 +46,8 @@ EXPECTED_MAGIC = {
 PE_EXT = {".dll", ".exe", ".pyd", ".sys", ".ocx", ".ax", ".cpl", ".drv", ".scr", ".efi", ".mui",
           ".node", ".tlb", ".winmd"}
 MAX_DEPTH = 4
+EXTRACT_WORKERS = 8   # extraction is mostly disk-bound: more threads only thrash
+SLOW_ARCHIVE_S = 10   # archives taking longer are named on the console
 
 
 @dataclass
@@ -243,6 +245,131 @@ def _analyze_job(args):
     return info
 
 
+@dataclass
+class _Job:
+    abs: str
+    disp: str
+    kind: str
+    out: Path
+    size: int
+    depth: int
+
+
+def _plan_level(root: Path, pending: list[tuple[str, int]], res: StageResult, tag: dict) -> list[_Job]:
+    """Pick the archives among one level's files; record the ones that must not be extracted."""
+    jobs = []
+    for abs_path, depth in pending:
+        size = os.path.getsize(abs_path)
+        if size == 0:
+            continue  # empty placeholder: nothing to extract or scan
+        kind = _archive_type(abs_path, _magic(abs_path))
+        if not kind:
+            if _claimed_type(abs_path):
+                res.not_archives.append(display_path(root, abs_path))
+            continue
+        disp = display_path(root, abs_path)
+        if depth > MAX_DEPTH:
+            res.archives_failed.append((disp, f"nesting deeper than {MAX_DEPTH} levels - not extracted"))
+            log.warning("archive nesting too deep, skipping %s", disp, extra=tag)
+            continue
+        out = extraction_dir(root, abs_path)
+        if out is None:
+            res.archives_failed.append((disp, "unsafe extraction path - not extracted"))
+            log.warning("refusing to extract %s: output would leave the stage", disp, extra=tag)
+            continue
+        if os.path.lexists(out):
+            # only a crafted parent archive (holding both 'x.zip' and a folder 'x.zip!') gets here;
+            # merging into that folder would mix contents, so the archive counts as not extracted
+            res.archives_failed.append((disp, "extraction folder collides with an existing path - not extracted"))
+            log.warning("refusing to extract %s: %s already exists", disp, out.name, extra=tag)
+            continue
+        jobs.append(_Job(abs_path, disp, kind, out, size, depth))
+    return jobs
+
+
+def _extract_progress(n_done: int, n_total: int, b_done: int, b_total: int, elapsed: float) -> str:
+    """Extraction time depends on both the number of archives (process start-up, small files)
+    and their size, so progress weighs the two equally: one huge archive does not stall the
+    percentage at 0%, and thousands of tiny ones do not make it race ahead."""
+    frac = (n_done / n_total + (b_done / b_total if b_total else 1.0)) / 2 if n_total else 1.0
+    eta = f"  ·  ETA {fmt_dur(elapsed * (1 - frac) / frac)}" if 0 < frac < 1 and elapsed > 1 else ""
+    return (f"{100 * frac:5.1f}%  ·  {n_done:,} / {n_total:,} archives  ·  "
+            f"{fmt_size(b_done)} / {fmt_size(b_total)}{eta}")
+
+
+def _timed_extract(job: _Job, started: dict) -> tuple[str, str, float]:
+    started[job.abs] = t = time.monotonic()
+    status, how = _extract(job.kind, job.abs, job.out)
+    return status, how, time.monotonic() - t
+
+
+def _extract_all(root: Path, files_dir: Path, res: StageResult, tag: dict, workers: int) -> None:
+    """Extract archives level by level (archives inside archives form the next level).
+
+    Archives of one level are independent - each extracts into its own '<path>!' folder,
+    and the collision check in _plan_level guarantees no folder lies inside another job's
+    output - so a level runs in parallel. Per-archive lines go to the log file; the console
+    gets a progress line every few seconds plus every archive that took long."""
+    pending = [(str(p), 1) for p in sorted(files_dir.rglob("*")) if p.is_file()]
+    level = 0
+    while pending:
+        jobs = _plan_level(root, pending, res, tag)
+        pending = []
+        if not jobs:
+            break
+        level += 1
+        total_bytes = sum(j.size for j in jobs)
+        label = "archives" if level == 1 else f"nested archives (level {level})"
+        log.info("extracting %s %s, %s", f"{len(jobs):,}", label, fmt_size(total_bytes), extra=tag)
+        t0 = last = time.monotonic()
+        done_bytes, results, started = 0, {}, {}
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            futs = {ex.submit(_timed_extract, j, started): j for j in jobs}
+            remaining = set(futs)
+            while remaining:
+                finished, remaining = wait(remaining, timeout=5, return_when=FIRST_COMPLETED)
+                for fut in finished:
+                    job = futs[fut]
+                    status, how, took = fut.result()  # _extract reports failures as a status
+                    results[job.abs] = (status, how)
+                    done_bytes += job.size
+                    if status == "failed":
+                        log.warning("could not extract %s: %s", job.disp, how, extra=tag)
+                    elif took >= SLOW_ARCHIVE_S:
+                        log.info("extracted %s (%s) in %s", job.disp, fmt_size(job.size), fmt_dur(took), extra=tag)
+                    else:
+                        log.debug("extracted %s archive %s (%s) [%s]", job.kind, job.disp,
+                                  fmt_size(job.size), how, extra=tag)
+                now = time.monotonic()
+                if remaining and now - last >= 5:
+                    last = now
+                    running = [(now - started[futs[f].abs], futs[f]) for f in remaining if futs[f].abs in started]
+                    slow = max(running, key=lambda r: r[0], default=None)
+                    busy = (f"  ·  running {fmt_dur(slow[0])}: {slow[1].disp} ({fmt_size(slow[1].size)})"
+                            if slow and slow[0] >= 5 else "")
+                    log.info("extracting  %s%s", _extract_progress(len(results), len(jobs), done_bytes,
+                                                                   total_bytes, now - t0), busy, extra=tag)
+
+        inner_total = 0
+        for job in jobs:  # results are recorded in a stable order, whatever finished first
+            status, how = results[job.abs]
+            if status == "failed":
+                res.archives_failed.append((job.disp, how))
+                continue
+            inner = sorted(str(p) for p in job.out.rglob("*") if p.is_file() and not p.is_symlink())
+            inner_total += len(inner)
+            res.archives_ok.append(job.disp)
+            if status == "partial":
+                res.archives_partial.append((job.disp, how))
+                log.warning("partially extracted %s (%d files; %s)", job.disp, len(inner), how, extra=tag)
+            pending += [(p, job.depth + 1) for p in inner]
+        log.info("%s %s %s extracted in %s -> %s files", MARK_DONE, f"{len(jobs):,}", label,
+                 fmt_dur(time.monotonic() - t0), f"{inner_total:,}", extra=tag)
+    log.info("archives: %s extracted (%d partially), %d could not be extracted, "
+             "%d files with an archive extension were not archives", f"{len(res.archives_ok):,}",
+             len(res.archives_partial), len(res.archives_failed), len(res.not_archives), extra=tag)
+
+
 def build(repo_name: str, checkout: Path, *, extract: bool = True, hash_files: bool = True,
           jobs: int = os.cpu_count() or 4) -> StageResult:
     tag = {"stage": f"stage:{repo_name}"}
@@ -253,56 +380,14 @@ def build(repo_name: str, checkout: Path, *, extract: bool = True, hash_files: b
     t0 = time.monotonic()
     res = StageResult(root=root)
     n = _link_tree(checkout, files_dir, res.symlinks)
-    log.info("staged %d files from checkout (hardlinked, .svn excluded) in %.1fs", n,
+    log.info("staged %s files from checkout (hardlinked, .svn excluded) in %.1fs", f"{n:,}",
              time.monotonic() - t0, extra=tag)
     for link in res.symlinks:
         log.warning("symbolic link not followed: %s", link, extra=tag)
 
     # --- recursive archive extraction --------------------------------------
     if extract:
-        pending = [(str(p), 1) for p in files_dir.rglob("*") if p.is_file()]
-        seen_archives = 0
-        while pending:
-            next_round = []
-            for abs_path, depth in pending:
-                if os.path.getsize(abs_path) == 0:
-                    continue  # empty placeholder: nothing to extract or scan
-                head = _magic(abs_path)
-                kind = _archive_type(abs_path, head)
-                if not kind:
-                    if _claimed_type(abs_path):
-                        res.not_archives.append(display_path(root, abs_path))
-                    continue
-                disp = display_path(root, abs_path)
-                if depth > MAX_DEPTH:
-                    res.archives_failed.append((disp, f"nesting deeper than {MAX_DEPTH} levels - not extracted"))
-                    log.warning("archive nesting too deep, skipping %s", disp, extra=tag)
-                    continue
-                out = extraction_dir(root, abs_path)
-                if out is None:
-                    res.archives_failed.append((disp, "unsafe extraction path - not extracted"))
-                    log.warning("refusing to extract %s: output would leave the stage", disp, extra=tag)
-                    continue
-                seen_archives += 1
-                size = os.path.getsize(abs_path)
-                status, how = _extract(kind, abs_path, out)
-                if status == "failed":
-                    res.archives_failed.append((disp, how))
-                    log.warning("could not extract %s: %s", disp, how, extra=tag)
-                    continue
-                inner = [str(p) for p in out.rglob("*") if p.is_file() and not p.is_symlink()]
-                res.archives_ok.append(disp)
-                if status == "partial":
-                    res.archives_partial.append((disp, how))
-                    log.warning("partially extracted %s (%d files; %s)", disp, len(inner), how, extra=tag)
-                else:
-                    log.info("extracted %s archive %s (%s) -> %d files [%s]", kind, disp,
-                             fmt_size(size), len(inner), how, extra=tag)
-                next_round += [(p, depth + 1) for p in inner]
-            pending = next_round
-        log.info("archives: %d extracted (%d partially), %d could not be extracted, "
-                 "%d files with an archive extension were not archives", len(res.archives_ok),
-                 len(res.archives_partial), len(res.archives_failed), len(res.not_archives), extra=tag)
+        _extract_all(root, files_dir, res, tag, workers=max(1, min(EXTRACT_WORKERS, jobs)))
 
     # --- inventory ------------------------------------------------------------
     all_files = []
@@ -316,8 +401,8 @@ def build(repo_name: str, checkout: Path, *, extract: bool = True, hash_files: b
                     all_files.append(FileRec(path=display_path(root, p), abs=p,
                                              size=os.path.getsize(p), in_archive=base == arch_dir))
     total = sum(f.size for f in all_files)
-    log.info("inventory: %d files, %s total (%d inside archives)", len(all_files),
-             fmt_size(total), sum(f.in_archive for f in all_files), extra=tag)
+    log.info("inventory: %s files, %s total (%s inside archives)", f"{len(all_files):,}",
+             fmt_size(total), f"{sum(f.in_archive for f in all_files):,}", extra=tag)
 
     bin_jobs = []
     for f in all_files:
@@ -355,28 +440,33 @@ def build(repo_name: str, checkout: Path, *, extract: bool = True, hash_files: b
                 done_bytes += rec.size
                 if time.monotonic() - last > 5:
                     last = time.monotonic()
-                    log.info("hashing: %d/%d files, %s / %s (%.0f MB/s)", i, len(all_files),
-                             fmt_size(done_bytes), fmt_size(total),
-                             done_bytes / 1048576 / max(time.monotonic() - t0, 1e-6), extra=tag)
-        log.info("sha256 computed for %d files in %.1fs", len(all_files), time.monotonic() - t0, extra=tag)
+                    log.info("hashing  %s  ·  %s / %s files",
+                             progress_text(done_bytes, total, last - t0, size=True, rate=True),
+                             f"{i:,}", f"{len(all_files):,}", extra=tag)
+        log.info("sha256 computed for %s files in %s", f"{len(all_files):,}", fmt_dur(time.monotonic() - t0),
+                 extra=tag)
 
     t0 = time.monotonic()
-    log.info("analysing %d binaries: version resources + %d embedded-library signatures (%d workers)",
-             len(bin_jobs), len(binsig.SIGNATURES), jobs, extra=tag)
+    log.info("analysing %s binaries: version resources + %d embedded-library signatures (%d workers)",
+             f"{len(bin_jobs):,}", len(binsig.SIGNATURES), jobs, extra=tag)
     last = time.monotonic()
+    bin_total, bin_done = sum(j[2] for j in bin_jobs), 0  # signature scans read whole files: weigh by size
     with ProcessPoolExecutor(max_workers=jobs) as ex:
         for i, info in enumerate(ex.map(_analyze_job, bin_jobs, chunksize=4), 1):
             res.pe.append(info)
+            bin_done += bin_jobs[i - 1][2]
             for c in info.components:
                 log.debug("identified %s %s %s in %s (%s)", c.vendor, c.product, c.version,
                           info.path, c.rule, extra=tag)
             if time.monotonic() - last > 5:
                 last = time.monotonic()
-                log.info("binary analysis: %d/%d", i, len(bin_jobs), extra=tag)
+                log.info("binary analysis  %s  ·  %s / %s binaries",
+                         progress_text(bin_done, bin_total, last - t0, size=True),
+                         f"{i:,}", f"{len(bin_jobs):,}", extra=tag)
     ident = sum(1 for p in res.pe if p.components)
     third = sum(1 for p in res.pe if p.party == "third-party")
     libs = {(c.vendor, c.product, c.version) for p in res.pe for c in p.components}
-    log.info("binary analysis done in %.1fs: %d binaries (%d third-party), %d contain %d distinct known libraries",
-             time.monotonic() - t0, len(res.pe), third, ident, len(libs), extra=tag)
+    log.info("binary analysis done in %s: %s binaries (%s third-party), %s contain %d distinct known libraries",
+             fmt_dur(time.monotonic() - t0), f"{len(res.pe):,}", f"{third:,}", f"{ident:,}", len(libs), extra=tag)
     res.files = all_files
     return res

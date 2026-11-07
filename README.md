@@ -193,6 +193,7 @@ read from a file with the `_FILE` suffix, e.g. `SMTP_PASSWORD_FILE=/run/secrets/
 | `SMTP_MAX_ATTACHMENT_MB` | larger reports are not attached; the email points to the output folder (default 15) |
 | `VULNSCAN_SCHEDULE` | cron schedule used by `--scheduled` (ignored by normal runs) |
 | `VULNSCAN_ACCEPTED_GAPS` | accepted coverage gaps as JSON, instead of `vulnscan-accepted-gaps.json` ([below](#accepted-coverage-gaps)) |
+| `VULNSCAN_UPDATE_CHECK` | `0` to skip the start-up check for a newer vulnscan release (one GitHub request a day, skipped with `--offline`; it only warns, never changes the result) |
 | `TZ` | time zone for schedules and timestamps, e.g. `America/Toronto` |
 | `VULNSCAN_TAG`, `VULNSCAN_REPORTS`, `VULNSCAN_ARGS` | Compose only: image tag, report folder on the host, arguments of the scheduled service |
 

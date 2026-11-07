@@ -7,11 +7,13 @@ import re
 import shutil
 import sqlite3
 import subprocess
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from xml.etree import ElementTree
 
-from .util import CACHE, fmt_dur, fmt_size, get_secret, log, run_streamed
+from .util import CACHE, fmt_dur, fmt_size, get_secret, log, progress_text, run_streamed
 
 SVN_CACHE = CACHE / "svn"
 
@@ -135,21 +137,75 @@ def _info(path_or_url: str, item: str) -> str:
     return res.stdout.strip()
 
 
-def _remote_size(repo: Repo, args: list[str], stdin: str | None) -> dict:
-    """Total files/bytes of the repository (for checkout progress %/ETA); best effort."""
-    log.info("measuring repository size for progress reporting", extra={"stage": f"svn:{repo.name}"})
+def parse_listing(xml_text: str) -> dict[str, int]:
+    """{relative path: size} of every file in `svn list -R --xml` output (directories skipped)."""
+    # The XML is produced by the local svn client, which escapes every name it prints.
+    root = ElementTree.fromstring(xml_text)  # noqa: S314
+    sizes = {}
+    for entry in root.iter("entry"):
+        name, size = entry.findtext("name"), entry.findtext("size")
+        if entry.get("kind") == "file" and name and size and size.isdigit():
+            sizes[name] = int(size)
+    return sizes
+
+
+def _remote_listing(repo: Repo, args: list[str], stdin: str | None) -> dict[str, int] | None:
+    """Size of every file in the repository, for checkout progress. Display only: any
+    failure just means progress is reported without a total."""
     try:
-        res = subprocess.run(["svn", "list", "-R", "-v", *args, repo.url], input=stdin,
-                             capture_output=True, text=True, errors="replace", timeout=900)
-    except subprocess.TimeoutExpired:
-        return {}
-    files = size = 0
-    for line in res.stdout.splitlines():
-        parts = line.split()
-        if len(parts) >= 7 and not line.rstrip().endswith("/") and parts[2].isdigit():
-            files += 1
-            size += int(parts[2])
-    return {"files": files, "bytes": size} if res.returncode == 0 else {}
+        res = subprocess.run(["svn", "list", "-R", "--xml", *args, repo.url], input=stdin,
+                             capture_output=True, text=True, errors="replace", timeout=1800)
+        return parse_listing(res.stdout) if res.returncode == 0 else None
+    except (subprocess.TimeoutExpired, ElementTree.ParseError, OSError) as exc:
+        log.debug("repository listing for progress failed: %s", exc, extra={"stage": f"svn:{repo.name}"})
+        return None
+
+
+class CheckoutProgress:
+    """Checkout progress from svn's 'A <path>' lines.
+
+    svn announces a file before it is written to the working copy, so sizes cannot be read
+    from disk; they come from the repository listing, which runs in parallel with the
+    checkout. Directories are not files: only listed paths count towards the totals."""
+
+    def __init__(self, wc: Path, tag: str, every: float = 10.0):
+        self.wc, self.tag, self.every = str(wc), tag, every
+        self.sizes: dict[str, int] | None = None  # set by the listing thread
+        self.pending: list[str] = []  # files announced before the listing arrived
+        self.files = self.bytes = 0
+        self.t0 = self.last = time.monotonic()
+
+    def _count(self, rel: str) -> None:
+        size = self.sizes.get(rel) if self.sizes is not None else None
+        if size is not None:
+            self.files += 1
+            self.bytes += size
+
+    def added(self, path: str) -> None:
+        rel = os.path.relpath(path, self.wc).replace(os.sep, "/")
+        if self.sizes is None:
+            self.pending.append(rel)
+            return
+        if self.pending:
+            for p in self.pending:
+                self._count(p)
+            self.pending = []
+        self._count(rel)
+
+    def text(self) -> str:
+        elapsed = time.monotonic() - self.t0
+        if self.sizes is None:
+            return (f"{len(self.pending):,} entries received  ·  {fmt_dur(elapsed)} elapsed  "
+                    f"(measuring repository size…)")
+        total_bytes, total_files = sum(self.sizes.values()), len(self.sizes)
+        return (f"{progress_text(self.bytes, total_bytes, elapsed, size=True, rate=True)}  ·  "
+                f"{min(self.files, total_files):,} / {total_files:,} files")
+
+    def tick(self) -> None:
+        now = time.monotonic()
+        if now - self.last >= self.every:
+            self.last = now
+            log.info(self.text(), extra={"stage": self.tag})
 
 
 def sync(repo: Repo, update: bool = True) -> None:
@@ -188,8 +244,7 @@ def sync(repo: Repo, update: bool = True) -> None:
     t0 = time.monotonic()
     last_report = [t0]
     line_re = re.compile(r"^([AUDGCER ])([AUDGCER ]?)\s+(\S.*)$")
-    total = {"files": 0, "bytes": 0}
-    done = {"bytes": 0}
+    progress: CheckoutProgress | None = None  # fresh checkouts only
 
     def on_line(line: str) -> bool:
         m = line_re.match(line)
@@ -197,27 +252,16 @@ def sync(repo: Repo, update: bool = True) -> None:
             return False
         key = m.group(1) if m.group(1) != " " else "U"
         counts[key] = counts.get(key, 0) + 1
-        if key in ("A", "U", "G"):
-            try:
-                done["bytes"] += os.path.getsize(m.group(3))
-            except OSError:
-                pass
-        log.debug(line, extra={"stage": f"svn:{repo.name}"})
-        now = time.monotonic()
-        if now - last_report[0] >= 5:
-            last_report[0] = now
-            elapsed = max(now - t0, 1e-6)
-            rate = done["bytes"] / elapsed
-            if total["bytes"]:
-                pct = min(100.0, 100.0 * done["bytes"] / total["bytes"])
-                eta = (total["bytes"] - done["bytes"]) / rate if rate > 0 else 0
-                log.info("%5.1f%%  %s / %s  ·  %d / %d files  ·  %s/s  ·  ETA %s", pct,
-                         fmt_size(done["bytes"]), fmt_size(total["bytes"]), counts["A"], total["files"],
-                         fmt_size(rate), fmt_dur(eta), extra={"stage": f"svn:{repo.name}"})
-            else:
-                log.info("%d added, %d updated, %d deleted so far  ·  %s  ·  %s/s",
-                         counts["A"], counts["U"] + counts["G"], counts["D"], fmt_size(done["bytes"]),
-                         fmt_size(rate), extra={"stage": f"svn:{repo.name}"})
+        log.debug(line, extra=tag)
+        if progress is not None:
+            if key == "A":
+                progress.added(m.group(3))
+            progress.tick()
+        elif time.monotonic() - last_report[0] >= 10:
+            last_report[0] = time.monotonic()
+            log.info("%s added, %s updated, %s deleted so far  ·  %s elapsed", f"{counts['A']:,}",
+                     f"{counts['U'] + counts['G']:,}", f"{counts['D']:,}",
+                     fmt_dur(last_report[0] - t0), extra=tag)
         return True
 
     if existing_url:
@@ -239,15 +283,24 @@ def sync(repo: Repo, update: bool = True) -> None:
         log.info("fresh checkout of %s -> %s (first run can take a long time)",
                  repo.url, wc, extra={"stage": f"svn:{repo.name}"})
         wc.parent.mkdir(parents=True, exist_ok=True)
-        total.update(_remote_size(repo, args, stdin))
-        if total["bytes"]:
-            log.info("repository holds %d files, %s", total["files"], fmt_size(total["bytes"]),
-                     extra={"stage": f"svn:{repo.name}"})
-        t0 = time.monotonic()
+        progress = CheckoutProgress(wc, f"svn:{repo.name}")
+
+        def measure():
+            sizes = _remote_listing(repo, args, stdin)
+            if sizes is not None:
+                log.info("repository holds %s files, %s", f"{len(sizes):,}", fmt_size(sum(sizes.values())),
+                         extra=tag)
+                progress.sizes = sizes
+            else:
+                log.info("repository size unknown - progress is shown without a total", extra=tag)
+
+        measurer = threading.Thread(target=measure, daemon=True)
+        measurer.start()
         rc = run_streamed(["svn", "checkout", *args, repo.url, str(wc)], f"svn:{repo.name}",
                           stdin_data=stdin, line_callback=on_line)
         if rc != 0:
             raise RuntimeError(f"svn checkout failed for {repo.name} (exit {rc})")
+        measurer.join(timeout=5)
 
     repo.revision = _info(str(wc), "revision")
     repo.last_changed_rev = _info(str(wc), "last-changed-revision")

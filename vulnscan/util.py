@@ -38,8 +38,25 @@ _STAGE_COLORS = ["cyan", "magenta", "green3", "dodger_blue1", "orchid", "turquoi
                  "gold3", "spring_green2", "medium_purple1", "deep_sky_blue1"]
 _LEVEL_STYLE = {"DEBUG": "grey50", "INFO": "", "WARNING": "bold yellow", "ERROR": "bold red",
                 "CRITICAL": "bold white on red"}
-_LEVEL_MARK = {"WARNING": "⚠ ", "ERROR": "✖ ", "CRITICAL": "✖ ", "DEBUG": "· "}
+# Glyphs without an emoji presentation (no U+26A0, U+2714, U+2716, U+25B6): terminals render
+# emoji-capable symbols two cells wide, which eats the following space and shifts the line.
+MARK_WARN, MARK_ERROR, MARK_START, MARK_DONE = "▲", "✗", "▸", "✓"
+_LEVEL_MARK = {"WARNING": MARK_WARN, "ERROR": MARK_ERROR, "CRITICAL": MARK_ERROR, "DEBUG": "·"}
 _T0 = time.monotonic()
+_STAGE_MIN, _STAGE_MAX = 16, 30
+_stage_width = _STAGE_MIN
+
+
+def set_stage_width(repo_names) -> None:
+    """Size the stage column once for the whole run, from the longest tag it will show
+    ('stage:<repo>'), so the message column does not jump between repository sections."""
+    global _stage_width
+    longest = max((len(f"stage:{n}") for n in repo_names), default=0)
+    _stage_width = max(_STAGE_MIN, min(_STAGE_MAX, longest))
+
+
+def _fit(text: str, width: int) -> str:
+    return f"{text:<{width}}" if len(text) <= width else text[: width - 1] + "…"
 
 
 def fmt_dur(seconds: float) -> str:
@@ -57,6 +74,20 @@ def fmt_size(n: float) -> str:
     return f"{n:.1f} TB"
 
 
+def progress_text(done: float, total: float, elapsed: float, *, size: bool = False, rate: bool = False) -> str:
+    """'42.0% · 1,234 / 2,938 · 12.3 MB/s · ETA 1:20' - done and total are counts or bytes."""
+    fmt = fmt_size if size else (lambda v: f"{int(v):,}")
+    if total <= 0:
+        return f"{fmt(done)} so far"
+    done = min(done, total)  # never report past the end
+    parts = [f"{100.0 * done / total:5.1f}%", f"{fmt(done)} / {fmt(total)}"]
+    if rate and elapsed > 0:
+        parts.append(f"{fmt_size(done / elapsed)}/s" if size else f"{done / elapsed:,.0f}/s")
+    if 0 < done < total and elapsed > 1:
+        parts.append(f"ETA {fmt_dur(elapsed * (total - done) / done)}")
+    return "  ·  ".join(parts)
+
+
 def _stage_of(record: logging.LogRecord) -> str:
     return getattr(record, "stage", "") or "main"
 
@@ -71,10 +102,10 @@ class RichLineHandler(logging.Handler):
             lvl = record.levelname
             t = Text()
             t.append(time.strftime("%H:%M:%S", time.localtime(record.created)), "grey50")
-            t.append(f" {fmt_dur(time.monotonic() - _T0):>7} ", "grey42")
-            t.append(_LEVEL_MARK.get(lvl, "  "), _LEVEL_STYLE.get(lvl, ""))
-            t.append(f"{stage:<16}", color)
-            t.append(" " + record.getMessage(), _LEVEL_STYLE.get(lvl, ""))
+            t.append(f" {fmt_dur(time.monotonic() - _T0):>7}  ", "grey42")
+            t.append(f"{_LEVEL_MARK.get(lvl, ' ')} ", _LEVEL_STYLE.get(lvl, ""))
+            t.append(_fit(stage, _stage_width), color)
+            t.append("  " + record.getMessage(), _LEVEL_STYLE.get(lvl, ""))
             if record.exc_info:
                 t.append("\n" + logging.Formatter().formatException(record.exc_info), "red")
             console.print(t)
@@ -120,14 +151,14 @@ def remove_handler(h: logging.Handler) -> None:
 def stage(name: str, tag: str = ""):
     """Log start/end + duration of a pipeline stage."""
     extra = {"stage": tag} if tag else None
-    log.info("▶ %s", name, extra=extra)
+    log.info("%s %s", MARK_START, name, extra=extra)
     t0 = time.monotonic()
     try:
         yield
     except Exception:
         log.error("%s failed after %s", name, fmt_dur(time.monotonic() - t0), extra=extra)
         raise
-    log.info("✔ %s done in %s", name, fmt_dur(time.monotonic() - t0), extra=extra)
+    log.info("%s %s done in %s", MARK_DONE, name, fmt_dur(time.monotonic() - t0), extra=extra)
 
 
 def run_streamed(cmd: list[str], tag: str, *, cwd: str | Path | None = None,

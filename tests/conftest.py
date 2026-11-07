@@ -28,3 +28,4 @@ def _clean_env(monkeypatch):
     for k in list(os.environ):
         if k.startswith(("SMTP_", "SVN_", "VULNSCAN_REPOS", "VULNSCAN_SCHEDULE", "VULNSCAN_RECORD")):
             monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("VULNSCAN_UPDATE_CHECK", "0")  # no GitHub release lookups from cli tests

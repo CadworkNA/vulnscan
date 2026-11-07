@@ -23,9 +23,12 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from . import __version__, enrich, notify, report, sbom, scanners, stage, svn
+from . import __version__, enrich, notify, report, sbom, scanners, stage, svn, update
 from .schedule import Cron
 from .util import (
+    MARK_DONE,
+    MARK_ERROR,
+    MARK_WARN,
     add_logfile,
     console,
     drop_privileges,
@@ -34,6 +37,7 @@ from .util import (
     get_secret,
     log,
     remove_handler,
+    set_stage_width,
     setup_logging,
 )
 from .util import stage as stage_ctx
@@ -359,11 +363,19 @@ def summarize(findings, coverage, eol, repo_names, run_problems=()) -> dict:
             kev_list.append({"id": f["vuln_id"], "component": f["component"], "version": f["version"],
                              "title": (f["title"] or f["description"] or "").split("\n")[0]})
     hard_eol = [e for e in eol if e["status"] == "End of life"]
+    eol_groups = defaultdict(lambda: {"files": 0, "eol_date": ""})
+    for e in hard_eol:
+        g = eol_groups[(e["product"], e["version"])]
+        g["files"] += 1
+        g["eol_date"] = g["eol_date"] or str(e.get("eol_date") or "")
+    eol_items = sorted(({"product": p, "version": v, **g} for (p, v), g in eol_groups.items()),
+                       key=lambda i: (-i["files"], i["product"].lower(), i["version"]))
     return {
         "repos": repo_names, "files": sum(r["files"] for r in per_repo), "total": len(findings),
         "sev": Counter(f["severity"] for f in findings), "p1": sum(p1_repo.values()),
         "kev": len(seen), "kev_list": kev_list, "eol": len({(e["product"], e["version"]) for e in hard_eol}),
         "eol_list": Counter(f"{e['product']} {e['version']}" for e in hard_eol).most_common(),
+        "eol_items": eol_items,
         "per_repo": per_repo, "status_ok": not problems, "problems": problems,
         "top_components": [{"name": c["names"].most_common(1)[0][0], "version": v, "vulns": len(c["ids"]),
                             "critical": len(c["sev"]["CRITICAL"]), "high": len(c["sev"]["HIGH"]),
@@ -376,49 +388,123 @@ def _n(value: int, style: str) -> Text:
     return Text(f"{value:,}", style="grey42" if not value else style)
 
 
+SUMMARY_WIDTH = 120  # every results table shares one width, so the columns line up section to section
+SUMMARY_ROWS = 10
+_SEV_COLS = (("CRITICAL", "bold red3"), ("HIGH", SEV_STYLE["HIGH"]), ("MEDIUM", SEV_STYLE["MEDIUM"]),
+             ("LOW", SEV_STYLE["LOW"]))
+
+
+def _section(title: str, note: str = "") -> Table:
+    t = Table(box=box.SIMPLE_HEAD, header_style="bold", title_justify="left", show_edge=False, pad_edge=False,
+              width=min(console.width, SUMMARY_WIDTH), title_style="bold",
+              title=Text.assemble((title, "bold cyan"), (f"  {note}" if note else "", "grey50")))
+    return t
+
+
+def _more(shown: int, total: int, where: str) -> None:
+    if total > shown:
+        console.print(f"[muted]… and {total - shown:,} more, see the {where} sheet of the report[/muted]")
+
+
+def _headline(s: dict) -> Text:
+    """One line with the verdict and the counts that matter most."""
+    t = Text()
+    if s["status_ok"]:
+        t.append(f" {MARK_DONE} COMPLETE ", "bold white on green4")
+    else:
+        t.append(f" {MARK_WARN} INCOMPLETE ", "bold black on yellow")
+    t.append(f"   {s['total']:,} findings in {s['files']:,} files, {len(s['per_repo'])} "
+             f"repositor{'y' if len(s['per_repo']) == 1 else 'ies'}", "bold")
+    t.append("\n\n ")
+    items = [(s["sev"].get(k, 0), k.lower(), style) for k, style in _SEV_COLS]
+    items += [(s["kev"], "actively exploited", "bold red"), (s["p1"], "priority 1", "bold"),
+              (s["eol"], "end-of-life", "bold magenta")]
+    for i, (n, label, style) in enumerate(items):
+        if i:
+            t.append("  ·  ", "grey42")
+        t.append(f"{n:,}", style if n else "grey42")
+        t.append(f" {label}", "grey62")
+    return t
+
+
 def final_summary(s: dict, report_path: str, evidence: str, duration: str):
     snapshot("scan")
+    console.print()
     console.rule("[bold cyan]Results")
-    tb = Table(box=box.SIMPLE_HEAVY, header_style="bold")
-    tb.add_column("Repository", style="bold")
-    tb.add_column("Rev", style="grey62")
+    console.print()
+    console.print(_headline(s))
+    console.print()
+
+    tb = _section("Repositories")
+    tb.add_column("Repository", style="bold", ratio=1, no_wrap=True)
+    tb.add_column("Rev", style="grey62", no_wrap=True)
     tb.add_column("Files", justify="right")
-    for sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
-        tb.add_column(sev.title(), justify="right", style="bold red3" if sev == "CRITICAL" else SEV_STYLE[sev])
+    for sev, style in _SEV_COLS:
+        tb.add_column(sev.title(), justify="right", style=style)
     tb.add_column("KEV", justify="right", style="bold red")
     tb.add_column("P1", justify="right")
-    tb.add_column("Status")
+    tb.add_column("Status", no_wrap=True)
     for r in s["per_repo"]:
-        status = ("[bold red]FAILED[/]" if r["failed"] else
-                  f"[yellow]incomplete ({', '.join(r['bad'])})[/]" if r["bad"] else "[ok]complete[/ok]")
+        status = (f"[bold red]{MARK_ERROR} failed[/]" if r["failed"] else
+                  f"[yellow]{MARK_WARN} incomplete ({', '.join(r['bad'])})[/]" if r["bad"]
+                  else f"[ok]{MARK_DONE} complete[/ok]")
         tb.add_row(r["name"], r["revision"], f"{r['files']:,}",
-                   *(_n(r["sev"][k], "bold red3" if k == "CRITICAL" else SEV_STYLE[k])
-                     for k in ("CRITICAL", "HIGH", "MEDIUM", "LOW")),
+                   *(_n(r["sev"][k], style) for k, style in _SEV_COLS),
                    _n(r["kev"], "bold red"), _n(r["p1"], "bold"), status)
+    if len(s["per_repo"]) > 1:
+        tb.show_footer = True
+        tb.columns[0].footer = "Total"
+        tb.columns[2].footer = f"{s['files']:,}"
+        for i, (sev, _style) in enumerate(_SEV_COLS, start=3):
+            tb.columns[i].footer = f"{s['sev'].get(sev, 0):,}"
+        tb.columns[7].footer = f"{s['kev']:,}"  # distinct across repositories
+        tb.columns[8].footer = f"{s['p1']:,}"
     console.print(tb)
+
     if s["top_components"]:
-        t2 = Table(title="Highest-risk components", box=box.SIMPLE, header_style="bold", title_justify="left")
-        for col, kw in [("Component", {}), ("Version", {"style": "grey62"}), ("Vulns", {"justify": "right"}),
-                        ("Critical", {"justify": "right", "style": "bold red3"}),
-                        ("High", {"justify": "right", "style": "red1"}),
-                        ("KEV", {"justify": "right", "style": "bold red"}), ("Files", {"justify": "right"})]:
-            t2.add_column(col, **kw)
-        for c in s["top_components"]:
+        console.print()
+        t2 = _section("Highest-risk components", "most actively exploited, then most critical")
+        t2.add_column("Component", style="bold", ratio=1, no_wrap=True)
+        t2.add_column("Version", style="grey62", no_wrap=True)
+        t2.add_column("Vulns", justify="right")
+        t2.add_column("Critical", justify="right", style="bold red3")
+        t2.add_column("High", justify="right", style=SEV_STYLE["HIGH"])
+        t2.add_column("KEV", justify="right", style="bold red")
+        t2.add_column("Files", justify="right")
+        for c in s["top_components"][:SUMMARY_ROWS]:
             t2.add_row(c["name"], c["version"], f"{c['vulns']:,}", _n(c["critical"], "bold red3"),
-                       _n(c["high"], "red1"), _n(c["kev"], "bold red"), f"{c['files']:,}")
+                       _n(c["high"], SEV_STYLE["HIGH"]), _n(c["kev"], "bold red"), f"{c['files']:,}")
         console.print(t2)
-    if s["eol_list"]:
-        console.print("[bold]End-of-life:[/] " + ", ".join(f"{k} [muted]({v} files)[/muted]"
-                                                            for k, v in s["eol_list"][:10]))
+
     if s["kev_list"]:
-        ids = [k["id"] for k in s["kev_list"]]
-        console.print(f"[kev] {len(ids)} actively exploited (CISA KEV) [/kev] " + ", ".join(ids[:15])
-                      + (" …" if len(ids) > 15 else ""))
+        console.print()
+        t3 = _section(f"Actively exploited ({len(s['kev_list']):,})", "on the CISA KEV catalogue: fix first")
+        t3.add_column("Vulnerability", style="bold red", no_wrap=True)
+        t3.add_column("Component", style="bold", no_wrap=True)
+        t3.add_column("Version", style="grey62", no_wrap=True)
+        t3.add_column("Title", ratio=1, no_wrap=True, overflow="ellipsis")
+        for k in s["kev_list"][:SUMMARY_ROWS]:
+            t3.add_row(k["id"], k["component"], k["version"], k["title"] or "")
+        console.print(t3)
+        _more(SUMMARY_ROWS, len(s["kev_list"]), "Vulnerabilities")
+
+    if s["eol_items"]:
+        console.print()
+        t4 = _section(f"End-of-life components ({len(s['eol_items']):,})", "no more security fixes")
+        t4.add_column("Component", style="bold", ratio=1, no_wrap=True, overflow="ellipsis")
+        t4.add_column("Version", style="grey62", no_wrap=True)
+        t4.add_column("End of life", style="grey62", no_wrap=True)
+        t4.add_column("Files", justify="right")
+        for e in s["eol_items"][:SUMMARY_ROWS]:
+            t4.add_row(e["product"], e["version"], e["eol_date"], f"{e['files']:,}")
+        console.print(t4)
+        _more(SUMMARY_ROWS, len(s["eol_items"]), "End of Life")
+
     console.print()
     console.print(Panel(Text.assemble(("Report    ", "bold"), (report_path, "cyan"), "\n",
                                       ("Evidence  ", "bold"), (evidence, "grey62"), "\n",
                                       ("Duration  ", "bold"), duration),
-                        border_style="green", box=box.ROUNDED, expand=False))
+                        border_style="green" if s["status_ok"] else "yellow", box=box.ROUNDED, expand=False))
     snapshot("results")
 
 
@@ -464,8 +550,11 @@ def run_once(args, repos, notes, argv) -> int:
 
 def _run(args, repos, notes, argv, started, run_id, sel_name, evidence) -> int:
     out = args.output
+    set_stage_width(args.selected)
+    update_check = update.UpdateCheck(__version__, args.offline)
     tools = scanners.tool_versions()
     banner(tools)
+    update_check.report()
     for n in notes:
         log.info(n)
     log.info("repositories: %s  ·  engines: %s  ·  workers: %d%s", ", ".join(args.selected),
@@ -566,8 +655,8 @@ def _run(args, repos, notes, argv, started, run_id, sel_name, evidence) -> int:
                 rc = 4
     if not summary["status_ok"]:
         console.print(Panel("\n".join(f"• {p}" for p in summary["problems"]),
-                            title="[bold]⚠ SCAN INCOMPLETE - this is NOT an all-clear[/]",
-                            border_style="yellow", box=box.HEAVY, expand=False))
+                            title=f"[bold] {MARK_WARN}  SCAN INCOMPLETE - this is NOT an all-clear [/]",
+                            border_style="yellow", box=box.HEAVY, expand=False, padding=(0, 2)))
         return 3
     gate = args.fail_on
     if gate != "none":
@@ -577,7 +666,7 @@ def _run(args, repos, notes, argv, started, run_id, sel_name, evidence) -> int:
                any(f["priority"] in ("P1", "P2") for f in merged) if gate == "p2" else
                any(f["severity"].lower() in sevs[: sevs.index(gate) + 1] for f in merged))
         if hit:
-            console.print(f"[bold red]✖ findings at or above '{gate}' - failing (--fail-on {gate})[/]")
+            console.print(f"[bold red]{MARK_ERROR}  findings at or above '{gate}' - failing (--fail-on {gate})[/]")
             return 1
     return rc
 
