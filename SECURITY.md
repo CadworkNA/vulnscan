@@ -27,7 +27,7 @@ In scope: vulnerabilities in vulnscan itself and in the published image, for exa
 
 - a crafted archive, installer or binary that leads to code execution, writes outside the scan folder or escapes
   the unprivileged user the scanner switches to;
-- leaking credentials from `.env` (SVN, SMTP) into reports, logs, SBOMs or e-mails;
+- leaking credentials from `.env` (SVN, SMTP) into reports, logs, SBOMs or emails;
 - a crafted input that makes a run report **complete** although content was not scanned, defeating the fail-closed
   guarantee;
 - a vulnerable component in the image that is actually reachable through vulnscan.

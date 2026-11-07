@@ -1,4 +1,4 @@
-"""E-mail the scan result: polished HTML summary (Outlook-safe tables + inline
+"""Email the scan result: polished HTML summary (Outlook-safe tables + inline
 styles), plain-text alternative, and the Excel report attached.
 
 Configuration (environment; every value can also come from a file via NAME_FILE,
@@ -244,7 +244,7 @@ nothing about the current state of these repositories is known.</p>
 <p style="margin:14px 0 0;font-size:12px;color:#6B7280">Log: <code>{_e(meta['evidence_dir'])}/scan.log</code><br>
 Run {_e(meta['run_id'])} · <code>{_e(meta['command'])}</code></p></td></tr></table></body></html>""", subtype="html")
     _deliver(cfg, msg)
-    log.info("failure notice e-mailed to %s", ", ".join(cfg["to"] + cfg["cc"]), extra={"stage": "email"})
+    log.info("failure notice emailed to %s", ", ".join(cfg["to"] + cfg["cc"]), extra={"stage": "email"})
 
 
 def send(s: dict, meta: dict, report_path: Path) -> None:
@@ -271,7 +271,7 @@ def send(s: dict, meta: dict, report_path: Path) -> None:
                            filename=report_path.name)
 
     _deliver(cfg, msg)
-    log.info("report e-mailed to %s (%s)", ", ".join(cfg["to"] + cfg["cc"]),
+    log.info("report emailed to %s (%s)", ", ".join(cfg["to"] + cfg["cc"]),
              "with attachment" if attach else "summary only", extra={"stage": "email"})
 
 
@@ -295,8 +295,8 @@ def _deliver(cfg: dict, msg: EmailMessage) -> None:
             return
         except (smtplib.SMTPException, OSError) as exc:
             last_exc = exc
-            log.warning("e-mail attempt %d/3 failed: %s", attempt, exc, extra={"stage": "email"})
+            log.warning("email attempt %d/3 failed: %s", attempt, exc, extra={"stage": "email"})
             if isinstance(exc, smtplib.SMTPAuthenticationError):
                 break
             time.sleep(10 * attempt)
-    raise RuntimeError(f"could not send e-mail: {last_exc}")
+    raise RuntimeError(f"could not send email: {last_exc}")

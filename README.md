@@ -12,7 +12,7 @@
 (or scans any local folder), unpacks every installer and archive, identifies every third-party component —
 including libraries compiled into first-party DLLs — and matches them against CVE, GitHub and OSV advisories,
 the CISA **Known Exploited Vulnerabilities** catalog, EPSS exploit scores and end-of-life data. The result is
-an Excel report, optionally a CycloneDX SBOM and an e-mail. Everything runs in one container, so it works the
+an Excel report, optionally a CycloneDX SBOM and an email. Everything runs in one container, so it works the
 same on Windows (Podman/Docker Desktop), Linux and CI.
 
 It is built to **fail closed**: a run is only reported as complete when every repository was scanned by every
@@ -25,7 +25,7 @@ loudly, as incomplete — never as an all-clear.
 - [What it reports](#what-it-reports)
 - [How it works](#how-it-works)
 - [Usage](#usage)
-- [Scheduled scans and e-mail](#scheduled-scans-and-e-mail)
+- [Scheduled scans and email](#scheduled-scans-and-email)
 - [Configuration](#configuration)
 - [Trust: fail-closed behaviour, exit codes, verification](#trust-fail-closed-behaviour-exit-codes-verification)
 - [Versions and releases](#versions-and-releases)
@@ -115,7 +115,7 @@ flowchart LR
   D --> E3[osv-scanner<br>OSV.dev]
   D --> E4[retire.js]
   E1 & E2 & E3 & E4 --> F[Merge + enrich<br>KEV · EPSS · CVSS · EOL]
-  F --> G[Excel · SBOM · e-mail]
+  F --> G[Excel · SBOM · email]
 ```
 
 | Engine | Finds | Data |
@@ -141,8 +141,8 @@ vulnscan [--all | --<repo> ... | --repo NAME ... | --path DIR ...] [options]
 | `--<repo>`, `--repo NAME` | one repository (repeatable); `--list` shows the configured ones |
 | `--path DIR` | scan a local folder instead of SVN, e.g. a build output (relative to `/work`, or mount it) |
 | `--sbom` | also write a CycloneDX SBOM per repository |
-| `--email` | e-mail the summary and the report ([SMTP settings](#configuration)) |
-| `--schedule CRON` | keep running and scan on a cron schedule, e.g. `"0 2 * * 1"` ([below](#scheduled-scans-and-e-mail)) |
+| `--email` | email the summary and the report ([SMTP settings](#configuration)) |
+| `--schedule CRON` | keep running and scan on a cron schedule, e.g. `"0 2 * * 1"` ([below](#scheduled-scans-and-email)) |
 | `--scheduled` | same, with the schedule from `VULNSCAN_SCHEDULE` (what the Compose service uses) |
 | `--fail-on LEVEL` | exit 1 if findings at or above `critical`, `high`, `medium`, `low`, `kev`, `p1` or `p2` exist (CI gating) |
 | `--no-update` | scan the cached checkout without `svn update` |
@@ -160,10 +160,10 @@ podman run --rm -it -v vulnscan-cache:/cache -v "$PWD:/work" ghcr.io/cadworkna/v
 
 <p align="center"><img src="docs/images/terminal-scan.png" alt="Live progress during a scan" width="820"></p>
 
-## Scheduled scans and e-mail
+## Scheduled scans and email
 
 [`compose.yaml`](compose.yaml) runs vulnscan as a long-lived service (works as a **Dockhand** stack) that scans on a
-cron schedule and e-mails the result:
+cron schedule and emails the result:
 
 ```sh
 docker compose up -d                          # scheduled: VULNSCAN_SCHEDULE / VULNSCAN_ARGS from .env
@@ -171,9 +171,9 @@ docker compose run --rm scan --tools_2026       # one-off run with the same conf
 ```
 
 The schedule is evaluated in the container's time zone (`TZ`). A run that crashes or cannot produce a report sends
-a **"SCAN FAILED"** e-mail instead — a scheduled scan never fails silently.
+a **"SCAN FAILED"** email instead — a scheduled scan never fails silently.
 
-<p align="center"><img src="docs/images/email.png" alt="E-mail summary" width="560"></p>
+<p align="center"><img src="docs/images/email.png" alt="Email summary" width="560"></p>
 
 ## Configuration
 
@@ -189,7 +189,7 @@ read from a file with the `_FILE` suffix, e.g. `SMTP_PASSWORD_FILE=/run/secrets/
 | `SMTP_USERNAME`, `SMTP_PASSWORD` | optional SMTP login |
 | `SMTP_FROM`, `SMTP_TO`, `SMTP_CC` | addresses (comma separated) |
 | `SMTP_SUBJECT_PREFIX` | default `[vulnscan]` |
-| `SMTP_MAX_ATTACHMENT_MB` | larger reports are not attached; the e-mail points to the output folder (default 15) |
+| `SMTP_MAX_ATTACHMENT_MB` | larger reports are not attached; the email points to the output folder (default 15) |
 | `VULNSCAN_SCHEDULE` | cron schedule used by `--scheduled` (ignored by normal runs) |
 | `VULNSCAN_ACCEPTED_GAPS` | accepted coverage gaps as JSON, instead of `vulnscan-accepted-gaps.json` ([below](#accepted-coverage-gaps)) |
 | `TZ` | time zone for schedules and timestamps, e.g. `America/Toronto` |
@@ -200,7 +200,7 @@ Disk: the cache volume holds the checkouts (the size of the repositories) plus a
 ## Trust: fail-closed behaviour, exit codes, verification
 
 Many scanners report "0 vulnerabilities" when they actually scanned nothing. vulnscan treats all of these as an
-**incomplete** scan — shown in red in the terminal, the report and the e-mail subject, with exit code 3:
+**incomplete** scan — shown in red in the terminal, the report and the email subject, with exit code 3:
 
 - a repository could not be checked out/updated, or contained no files;
 - a scanner failed, exited with an error, or produced missing, truncated or malformed output;
@@ -217,7 +217,7 @@ Many scanners report "0 vulnerabilities" when they actually scanned nothing. vul
 | 1 | complete, but findings reached the `--fail-on` threshold |
 | 2 | invalid arguments or configuration |
 | 3 | **incomplete or failed** — not an all-clear |
-| 4 | complete, but the e-mail could not be sent |
+| 4 | complete, but the email could not be sent |
 
 **Verifying the image.** Images published by CI carry Sigstore-signed build provenance and an SBOM attestation; each
 [release](https://github.com/CadworkNA/vulnscan/releases) lists its image digest and the image SBOM:
@@ -267,7 +267,7 @@ Which one to use: `:1` to receive improvements and security updates automaticall
 `@sha256:…`) where a report must be traceable to an exact toolchain, e.g. the `VULNSCAN_TAG` of a scheduled stack.
 
 What changes the version, for the command line, the configuration (`.env`), the exit codes and the outputs (Excel
-report, SBOM, e-mail):
+report, SBOM, email):
 
 - **major**: a breaking change: an option or variable removed or renamed, an exit code that changes meaning, a
   report sheet or column removed or restructured;
@@ -299,7 +299,7 @@ vulnscan/
   scanners.py  engine runners, strict output parsing, self-test, database health
   enrich.py    merge, KEV/EPSS/CVSS enrichment, priority, end of life
   report.py    Excel report        sbom.py   CycloneDX SBOM
-  notify.py    e-mail              schedule.py  cron
+  notify.py    email               schedule.py  cron
 tests/         unit, contract (recorded scanner output) and detection tests
 ```
 
@@ -315,7 +315,7 @@ podman run --rm -v "$PWD:/src:ro" -e PYTHONPATH=/src --entrypoint sh vulnscan -c
 ```
 
 - **Unit tests** cover identification rules, signatures, merging, priority, end-of-life, cron, configuration, the
-  report, the e-mail and the SBOM (validated against the CycloneDX schema).
+  report, the email and the SBOM (validated against the CycloneDX schema).
 - **Contract tests** parse recorded real output of Grype, osv-scanner and retire.js ([`tests/fixtures`](tests/fixtures)),
   so a format change in a scanner upgrade fails CI instead of silently dropping findings.
 - **The detection test** downloads public, known-vulnerable artifacts (hash-verified), runs the full pipeline and

@@ -79,7 +79,7 @@ def build_parser(repo_names: list[str]) -> argparse.ArgumentParser:
     o.add_argument("--sbom", action="store_true",
                    help="also write a CycloneDX 1.6 SBOM (+ vulnerabilities) per repository next to the report")
     o.add_argument("--email", action="store_true",
-                   help="e-mail the summary + report (SMTP_* settings, see README)")
+                   help="email the summary + report (SMTP_* settings, see README)")
     o.add_argument("--schedule", metavar="CRON", default="",
                    help="keep running and scan on this cron schedule, e.g. '0 2 * * 1' "
                         "(Mondays 02:00, container TZ)")
@@ -311,7 +311,7 @@ def snapshot(name: str):
 
 
 def summarize(findings, coverage, eol, repo_names, run_problems=()) -> dict:
-    """One summary model shared by the console output and the e-mail.
+    """One summary model shared by the console output and the email.
 
     status_ok is True only when every repository was scanned by every engine, the
     databases were fresh and healthy and the self-test passed - anything else must
@@ -456,7 +456,7 @@ def run_once(args, repos, notes, argv) -> int:
                                                "evidence_dir": host_path(evidence),
                                                "command": "vulnscan " + " ".join(shlex.quote(a) for a in argv)})
             except Exception as mail_exc:  # noqa: BLE001
-                log.error("failure e-mail could not be sent either: %s", mail_exc, extra={"stage": "email"})
+                log.error("failure email could not be sent either: %s", mail_exc, extra={"stage": "email"})
         return 3
     finally:
         remove_handler(fh)
@@ -553,16 +553,16 @@ def _run(args, repos, notes, argv, started, run_id, sel_name, evidence) -> int:
                     summary["status_ok"] = False
     try:
         final_summary(summary, host_path(report_path), host_path(evidence), duration)
-    except Exception as exc:  # noqa: BLE001 - console rendering must never cost the e-mail
+    except Exception as exc:  # noqa: BLE001 - console rendering must never cost the email
         log.error("console summary failed: %s", exc)
 
     rc = 0
     if args.email:
-        with stage_ctx("e-mail", "email"):
+        with stage_ctx("email", "email"):
             try:
                 notify.send(summary, meta, report_path)
             except Exception as exc:  # noqa: BLE001
-                log.error("e-mail failed: %s", exc, extra={"stage": "email"})
+                log.error("email failed: %s", exc, extra={"stage": "email"})
                 rc = 4
     if not summary["status_ok"]:
         console.print(Panel("\n".join(f"• {p}" for p in summary["problems"]),
@@ -654,7 +654,7 @@ def _scheduled(args, repos, notes, argv):
                     "started": datetime.now().strftime("%Y-%m-%d %H:%M"), "evidence_dir": "(none)",
                     "command": "vulnscan " + " ".join(shlex.quote(a) for a in argv)})
             except Exception as exc:  # noqa: BLE001
-                log.error("failure e-mail could not be sent: %s", exc, extra={"stage": "email"})
+                log.error("failure email could not be sent: %s", exc, extra={"stage": "email"})
         return
     try:
         rc = run_once(args, repos, notes, argv)

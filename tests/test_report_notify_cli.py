@@ -1,4 +1,4 @@
-"""Excel report, e-mail rendering/sending and CLI argument handling."""
+"""Excel report, email rendering/sending and CLI argument handling."""
 from __future__ import annotations
 
 import smtplib
@@ -89,7 +89,7 @@ def test_report_handles_empty_scan(tmp_path):
     assert wb["Findings"].max_row == 2  # header + placeholder row
 
 
-# --- e-mail -----------------------------------------------------------------------------
+# --- email -----------------------------------------------------------------------------
 def _summary():
     return cli.summarize([dict(f) for f in FINDINGS], COVERAGE, EOL, ["r1"])
 

@@ -1,6 +1,6 @@
 # vulnscan - run with Docker/Podman Compose or as a Dockhand stack.
 #
-#   Scheduled (stays up, scans on VULNSCAN_SCHEDULE, e-mails the report):
+#   Scheduled (stays up, scans on VULNSCAN_SCHEDULE, emails the report):
 #     docker compose up -d
 #   One-off scan (report lands in ./reports):
 #     docker compose run --rm scan --tools_2026
@@ -27,7 +27,7 @@ x-vulnscan: &vulnscan
     options: { max-size: "20m", max-file: "5" }
 
 services:
-  # Long-running scheduler: scans on VULNSCAN_SCHEDULE (cron, container TZ) and e-mails the result.
+  # Long-running scheduler: scans on VULNSCAN_SCHEDULE (cron, container TZ) and emails the result.
   scheduled:
     <<: *vulnscan
     restart: unless-stopped
