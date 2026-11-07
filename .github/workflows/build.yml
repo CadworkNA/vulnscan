@@ -22,12 +22,17 @@ concurrency:
 
 jobs:
   # Every run builds the image and tests it from the inside. A push to main publishes it to GHCR tagged with the
-  # commit SHA (no `latest`: VULNSCAN_TAG in the stack names exactly what runs); a v* tag also publishes the
-  # version (v1.2.0 -> :1.2.0). Published images carry signed build provenance and an SBOM attestation:
+  # commit SHA. A v* tag is a release (semantic version, see "Image tags"): it publishes :X.Y.Z plus the floating
+  # :X.Y, :X and :latest, and the release job below turns it into a GitHub release. Published images carry signed
+  # build provenance and an SBOM attestation:
   #   gh attestation verify oci://ghcr.io/cadworkna/vulnscan:<tag> --owner CadworkNA
   image:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+
+    outputs:
+      tags: ${{ steps.tags.outputs.tags }}
+      digest: ${{ steps.push.outputs.digest }}
 
     permissions:
       contents: read
@@ -58,6 +63,46 @@ jobs:
           tags: vulnscan:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Every published image is tagged with the commit SHA. A v* tag must be a semantic version (vX.Y.Z or
+      # vX.Y.Z-prerelease) equal to the package version (vulnscan --version), checked here so a mismatch fails
+      # before the tests run. It adds :X.Y.Z and, for a stable release, each of :X.Y, :X and :latest for which it
+      # is the highest stable version: a backport such as 1.0.5 after 1.1.0 moves :1.0 but not :1 or :latest.
+      # A prerelease gets only its exact version.
+      - name: Image tags
+        id: tags
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'EOF'
+          import os, re, subprocess, sys
+          image, ref = os.environ["IMAGE"], os.environ["GITHUB_REF"]
+          tags = [f"{image}:{os.environ['GITHUB_SHA']}"]
+          if ref.startswith("refs/tags/"):
+              version = ref.removeprefix("refs/tags/v")
+              m = re.fullmatch(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z.-]+)?", version)
+              if not m:
+                  sys.exit(f"::error::tag {ref.removeprefix('refs/tags/')} is not a semantic version (vX.Y.Z[-pre])")
+              out = subprocess.run(["docker", "run", "--rm", "vulnscan:test", "--version"],
+                                   capture_output=True, text=True, check=True).stdout.split()
+              if out[-1] != version:
+                  sys.exit(f"::error::tag says {version} but the package says {out[-1]}: "
+                           "bump pyproject.toml and vulnscan/__init__.py, then tag again")
+              tags.append(f"{image}:{version}")
+              if not m[4]:
+                  refs = subprocess.run(["gh", "api", "--paginate", f"repos/{os.environ['GITHUB_REPOSITORY']}"
+                                         "/git/matching-refs/tags/v", "--jq", ".[].ref"],
+                                        capture_output=True, text=True, check=True).stdout.split()
+                  v = tuple(map(int, m.groups()[:3]))
+                  stable = {v} | {tuple(map(int, x.groups())) for r in refs
+                                  if (x := re.fullmatch(r"refs/tags/v(\d+)\.(\d+)\.(\d+)", r))}
+                  for name, n in ((f"{v[0]}.{v[1]}", 2), (f"{v[0]}", 1), ("latest", 0)):
+                      if v == max(s for s in stable if s[:n] == v[:n]):
+                          tags.append(f"{image}:{name}")
+          print("\n".join(tags))
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              f.write(f"tags={','.join(tags)}\n")
+          EOF
 
       - name: Unit tests (with coverage)
         run: |
@@ -124,15 +169,6 @@ jobs:
           path: sbom/
           if-no-files-found: ignore
 
-      - name: Image tags
-        id: tags
-        run: |
-          tags="$IMAGE:${GITHUB_SHA}"
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            tags="$tags,$IMAGE:${GITHUB_REF_NAME#v}"
-          fi
-          echo "tags=$tags" >> "$GITHUB_OUTPUT"
-
       - name: Login to GHCR
         if: env.PUSH == 'true'
         uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
@@ -179,3 +215,56 @@ jobs:
           subject-digest: ${{ steps.push.outputs.digest }}
           sbom-path: sbom/vulnscan.cdx.json
           push-to-registry: true
+
+  # A v* tag becomes a GitHub release once its image is published and attested: notes generated from the changes
+  # since the previous release, headed by the image tags, digest and verify command, with the image SBOM and the
+  # self-scan attached. It is marked Latest only when the image got :latest (not for a prerelease or a backport).
+  release:
+    needs: image
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download SBOM and self-scan
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: vulnscan-sbom-${{ github.sha }}
+          path: sbom
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE: ghcr.io/cadworkna/vulnscan
+          TAGS: ${{ needs.image.outputs.tags }}
+          DIGEST: ${{ needs.image.outputs.digest }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          t='`'
+          tag_list=$(tr ',' '\n' <<< "$TAGS" | sed "s|^$IMAGE:\(.*\)|$t:\1$t|" | paste -sd ' ')
+          cat > notes.md <<EOF
+          ## Container image
+
+          ${t}${t}${t}sh
+          podman pull $IMAGE:$version
+          ${t}${t}${t}
+
+          Digest ${t}$DIGEST${t}, tagged $tag_list. Verify its provenance and SBOM attestation:
+
+          ${t}${t}${t}sh
+          gh attestation verify oci://$IMAGE@$DIGEST --owner $GITHUB_REPOSITORY_OWNER
+          ${t}${t}${t}
+
+          Attached: ${t}vulnscan.cdx.json${t} (CycloneDX SBOM of the image) and ${t}self-scan.json${t} (Grype scan of
+          the image when it was built).
+
+          EOF
+          flags=(--latest=false)
+          [[ ",$TAGS," == *",$IMAGE:latest,"* ]] && flags=(--latest)
+          [[ "$version" == *-* ]] && flags+=(--prerelease)
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "vulnscan $version" --notes-file notes.md --generate-notes "${flags[@]}" \
+            sbom/vulnscan.cdx.json sbom/self-scan.json

@@ -22,16 +22,17 @@ loudly, as incomplete — never as an all-clear.
 - [Scheduled scans and e-mail](#scheduled-scans-and-e-mail)
 - [Configuration](#configuration)
 - [Trust: fail-closed behaviour, exit codes, verification](#trust-fail-closed-behaviour-exit-codes-verification)
+- [Versions and releases](#versions-and-releases)
 - [Development](#development)
 - [Limitations](#limitations)
 
 ## Quick start
 
-1. **Get the image.** Published by CI to GHCR, tagged with the commit SHA (see the repository's *Packages*):
+1. **Get the image.** Published to GHCR for every [release](https://github.com/CadworkNA/vulnscan/releases)
+   (see [Versions and releases](#versions-and-releases) for the available tags):
 
    ```sh
-   podman login ghcr.io            # only needed while the package is private
-   podman pull ghcr.io/cadworkna/vulnscan:<tag>
+   podman pull ghcr.io/cadworkna/vulnscan:1
    ```
 
    Or build it yourself: `podman build -t vulnscan .`
@@ -49,8 +50,8 @@ loudly, as incomplete — never as an all-clear.
 3. **Scan.** The report is written to the folder you mount at `/work` (here: the current folder):
 
    ```sh
-   podman run --rm -it --env-file .env -v vulnscan-cache:/cache -v "$PWD:/work" ghcr.io/cadworkna/vulnscan:<tag> --app_2026
-   podman run --rm -it --env-file .env -v vulnscan-cache:/cache -v "$PWD:/work" ghcr.io/cadworkna/vulnscan:<tag> --all
+   podman run --rm -it --env-file .env -v vulnscan-cache:/cache -v "$PWD:/work" ghcr.io/cadworkna/vulnscan:1 --app_2026
+   podman run --rm -it --env-file .env -v vulnscan-cache:/cache -v "$PWD:/work" ghcr.io/cadworkna/vulnscan:1 --all
    ```
 
    PowerShell: use `${PWD}` instead of `$PWD`. Docker works the same (`docker run ...`).
@@ -148,7 +149,7 @@ vulnscan [--all | --<repo> ... | --repo NAME ... | --path DIR ...] [options]
 Scan a build folder that is not in SVN:
 
 ```sh
-podman run --rm -it -v vulnscan-cache:/cache -v "$PWD:/work" ghcr.io/cadworkna/vulnscan:<tag> --path dist --sbom
+podman run --rm -it -v vulnscan-cache:/cache -v "$PWD:/work" ghcr.io/cadworkna/vulnscan:1 --path dist --sbom
 ```
 
 <p align="center"><img src="docs/images/terminal-scan.png" alt="Live progress during a scan" width="820"></p>
@@ -212,10 +213,11 @@ Many scanners report "0 vulnerabilities" when they actually scanned nothing. vul
 | 3 | **incomplete or failed** — not an all-clear |
 | 4 | complete, but the e-mail could not be sent |
 
-**Verifying the image.** Once the repository is public, images published by CI carry Sigstore-signed build provenance and an SBOM attestation (GitHub only offers these for public repositories on our plan):
+**Verifying the image.** Images published by CI carry Sigstore-signed build provenance and an SBOM attestation; each
+[release](https://github.com/CadworkNA/vulnscan/releases) lists its image digest and the image SBOM:
 
 ```sh
-gh attestation verify oci://ghcr.io/cadworkna/vulnscan:<tag> --owner CadworkNA
+gh attestation verify oci://ghcr.io/cadworkna/vulnscan:1.0.0 --owner CadworkNA
 ```
 
 CI also scans the image itself and fails on any actively exploited (KEV) vulnerability, unless it is listed with a
@@ -240,6 +242,44 @@ re-evaluates it. Accepted gaps are still listed on the report's Coverage sheet.
 ```
 
 `repo` may be `*`; `path` is a glob on the path shown in the report.
+
+## Versions and releases
+
+vulnscan follows [semantic versioning](https://semver.org). Every release is a
+[GitHub release](https://github.com/CadworkNA/vulnscan/releases) with notes, the image digest, the image SBOM and
+the self-scan of the image, and is published to GHCR with these tags:
+
+| Tag | Points to |
+|---|---|
+| `:1.2.3` | exactly that release; never moved (fixes ship as a new patch release) |
+| `:1.2` | the latest `1.2.x` |
+| `:1` | the latest `1.x.y`: new engines and fixes, no breaking changes |
+| `:latest` | the latest release |
+| `:<commit SHA>` | a build of `main`, unreleased; for testing only |
+
+Which one to use: `:1` to receive improvements and security updates automatically; an exact version (or a digest,
+`@sha256:…`) where a report must be traceable to an exact toolchain, e.g. the `VULNSCAN_TAG` of a scheduled stack.
+
+What changes the version, for the command line, the configuration (`.env`), the exit codes and the outputs (Excel
+report, SBOM, e-mail):
+
+- **major**: a breaking change: an option or variable removed or renamed, an exit code that changes meaning, a
+  report sheet or column removed or restructured;
+- **minor**: new options, engines, report content or identification rules, and scanner upgrades (Grype, Syft,
+  osv-scanner, retire.js). These can change the findings for the same files, so compare reports across a minor
+  release with that in mind;
+- **patch**: bug fixes and security updates of the image (base image, Python packages) without a change in behaviour.
+
+**Releasing** (maintainers): set the new version in `pyproject.toml` and `vulnscan/__init__.py` (a unit test keeps
+them equal), merge to `main`, then tag that commit:
+
+```sh
+git tag v1.2.3 && git push origin v1.2.3       # prerelease: v1.2.3-rc.1 (gets only its exact tag)
+```
+
+CI refuses a tag that is not a semantic version or does not match `vulnscan --version`, runs the full test suite,
+publishes and attests the image, and creates the GitHub release. A release of an older line (e.g. `1.0.5` after
+`1.1.0`) moves only `:1.0`, never `:1` or `:latest`.
 
 ## Development
 

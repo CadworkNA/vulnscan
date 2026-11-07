@@ -6,13 +6,13 @@
 #     docker compose run --rm scan --tools_2026
 #     docker compose run --rm scan --all
 #
-# Configuration comes from .env (see .env.example). Images are tagged with the
-# commit SHA they were built from, so VULNSCAN_TAG pins exactly what runs.
+# Configuration comes from .env (see .env.example). VULNSCAN_TAG names the image to
+# run: an exact release (1.2.3) pins what runs, a major version (1) follows updates.
 
 name: vulnscan
 
 x-vulnscan: &vulnscan
-  image: ghcr.io/cadworkna/vulnscan:${VULNSCAN_TAG:?set VULNSCAN_TAG to an image tag (commit SHA) in .env}
+  image: ghcr.io/cadworkna/vulnscan:${VULNSCAN_TAG:?set VULNSCAN_TAG to a release version (e.g. 1.2.3) in .env}
   env_file: .env
   environment:
     TZ: ${TZ:-America/Toronto}

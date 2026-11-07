@@ -1,10 +1,14 @@
 """Unit tests for the deterministic parts of vulnscan (no network, no scanners)."""
 from __future__ import annotations
 
+import re
+import tomllib
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 
+import vulnscan
 from vulnscan import binsig, enrich, report, scanners
 from vulnscan.schedule import Cron
 from vulnscan.stage import tidy
@@ -137,3 +141,11 @@ def test_vuln_url():
     assert report.vuln_url("CVE-2024-1234").endswith("/CVE-2024-1234")
     assert "github.com/advisories" in report.vuln_url("GHSA-aaaa-bbbb-cccc")
     assert report.vuln_url("RETIRE:jquery:x") == ""
+
+
+# --- version ------------------------------------------------------------------------
+def test_version_is_semver_and_matches_pyproject():
+    # CI publishes a v* tag only if it equals vulnscan --version; this keeps the two copies in step on every change.
+    pyproject = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text(encoding="utf-8"))
+    assert vulnscan.__version__ == pyproject["project"]["version"]
+    assert re.fullmatch(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z.-]+)?", vulnscan.__version__)
