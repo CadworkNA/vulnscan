@@ -1,2 +1,2 @@
 """vulnscan - vulnerability scanner for shipped SVN deliverables."""
-__version__ = "1.1.0"
+__version__ = "1.1.1"
