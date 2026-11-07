@@ -1,0 +1,35 @@
+[project]
+name = "vulnscan"
+version = "1.0.0"
+description = "Vulnerability scanner for shipped files (SVN repositories or local folders)"
+license = "MIT"
+requires-python = ">=3.12"
+# Runtime dependencies are installed in the container (see Containerfile).
+dependencies = ["pefile", "xlsxwriter", "rich", "cvss"]
+
+[dependency-groups]
+dev = ["pytest", "pytest-cov", "openpyxl", "ruff", "cyclonedx-python-lib[json-validation]"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: full pipeline against public known-vulnerable artifacts (network, slow)"]
+addopts = "-m 'not integration' -p no:cacheprovider"
+
+[tool.coverage.run]
+source = ["vulnscan"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "BLE"]
+ignore = ["S603", "S607", "S108", "S101", "E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S", "B", "BLE"]

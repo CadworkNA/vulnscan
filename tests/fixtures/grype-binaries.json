@@ -1,0 +1,834 @@
+{
+ "matches": [
+  {
+   "vulnerability": {
+    "id": "CVE-2025-0411",
+    "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2025-0411",
+    "namespace": "nvd:cpe",
+    "severity": "High",
+    "urls": [
+     "https://www.zerodayinitiative.com/advisories/ZDI-25-045/",
+     "http://www.openwall.com/lists/oss-security/2025/01/24/6",
+     "https://security.netapp.com/advisory/ntap-20250207-0005/",
+     "https://www.vicarius.io/vsociety/posts/cve-2025-0411-7-zip-mitigation-vulnerability",
+     "https://www.vicarius.io/vsociety/posts/cve-2025-0411-detection-7-zip-vulnerability",
+     "https://www.cisa.gov/known-exploited-vulnerabilities-catalog?field_cve=CVE-2025-0411"
+    ],
+    "description": "7-Zip Mark-of-the-Web Bypass Vulnerability. This vulnerability allows remote attackers to bypass the Mark-of-the-Web protection mechanism on affected installations of 7-Zip. User interaction is required to exploit this vulnerability in that the target must visit a malicious page or open a malicious file.\n\nThe specific flaw exists within the handling of archived files. When extracting files from a crafted archive that bears the Mark-of-the-Web, 7-Zip does not propagate the Mark-of-the-Web to the extracted files. An attacker can leverage this vulnerability to execute arbitrary code in the context of the current user. Was ZDI-CAN-25456.",
+    "cvss": [
+     {
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "version": "3.1",
+      "vector": "CVSS:3.1/AV:L/AC:H/PR:N/UI:R/S:U/C:H/I:H/A:H",
+      "metrics": {
+       "baseScore": 7,
+       "exploitabilityScore": 1.1,
+       "impactScore": 5.9
+      },
+      "vendorMetadata": {}
+     },
+     {
+      "source": "zdi-disclosures@trendmicro.com",
+      "type": "Secondary",
+      "version": "3.0",
+      "vector": "CVSS:3.0/AV:L/AC:H/PR:N/UI:R/S:U/C:H/I:H/A:H",
+      "metrics": {
+       "baseScore": 7,
+       "exploitabilityScore": 1.1,
+       "impactScore": 5.9
+      },
+      "vendorMetadata": {}
+     }
+    ],
+    "knownExploited": [
+     {
+      "cve": "CVE-2025-0411",
+      "vendorProject": "7-Zip",
+      "product": "7-Zip",
+      "dateAdded": "2025-02-06",
+      "requiredAction": "Apply mitigations per vendor instructions or discontinue use of the product if mitigations are unavailable.",
+      "dueDate": "2025-02-27",
+      "knownRansomwareCampaignUse": "unknown",
+      "urls": [
+       "https://www.7-zip.org/history.txt",
+       "https://nvd.nist.gov/vuln/detail/CVE-2025-0411"
+      ],
+      "cwes": [
+       "CWE-693"
+      ]
+     }
+    ],
+    "epss": [
+     {
+      "cve": "CVE-2025-0411",
+      "epss": 0.47574,
+      "percentile": 0.98849,
+      "date": "2026-11-05"
+     }
+    ],
+    "cwes": [
+     {
+      "cve": "CVE-2025-0411",
+      "cwe": "CWE-693",
+      "source": "zdi-disclosures@trendmicro.com",
+      "type": "Secondary"
+     }
+    ],
+    "fix": {
+     "versions": [
+      "24.09"
+     ],
+     "state": "fixed",
+     "available": [
+      {
+       "version": "24.09",
+       "date": "2025-09-04",
+       "kind": "first-observed"
+      }
+     ]
+    },
+    "advisories": [],
+    "risk": 76.125
+   },
+   "relatedVulnerabilities": [],
+   "matchDetails": [
+    {
+     "type": "cpe-match",
+     "matcher": "stock-matcher",
+     "searchedBy": {
+      "namespace": "nvd:cpe",
+      "cpes": [
+       "cpe:2.3:a:7-zip:7-zip:19.00:*:*:*:*:*:*:*"
+      ],
+      "package": {
+       "name": "7-zip/7-zip",
+       "version": "19.00"
+      }
+     },
+     "found": {
+      "vulnerabilityID": "CVE-2025-0411",
+      "versionConstraint": "< 24.09 (unknown)",
+      "cpes": [
+       "cpe:2.3:a:7-zip:7-zip:*:*:*:*:*:*:*:*"
+      ]
+     },
+     "fix": {
+      "suggestedVersion": "24.09"
+     }
+    }
+   ],
+   "artifact": {
+    "id": "7-zip/7-zip@19.00",
+    "name": "7-zip/7-zip",
+    "version": "19.00",
+    "type": "UnknownPackage",
+    "locations": null,
+    "language": "",
+    "licenses": [],
+    "cpes": [
+     "cpe:2.3:a:7-zip:7-zip:19.00:*:*:*:*:*:*:*"
+    ],
+    "purl": "",
+    "upstreams": []
+   }
+  },
+  {
+   "vulnerability": {
+    "id": "CVE-2023-31102",
+    "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2023-31102",
+    "namespace": "nvd:cpe",
+    "severity": "High",
+    "urls": [
+     "https://ds-security.com/post/integer-overflow-in-7-zip-cve-2023-31102/",
+     "https://security.netapp.com/advisory/ntap-20231110-0007/",
+     "https://sourceforge.net/p/sevenzip/discussion/45797/thread/713c8a8269/",
+     "https://www.7-zip.org/download.html",
+     "https://www.zerodayinitiative.com/advisories/ZDI-23-1165/"
+    ],
+    "description": "Ppmd7.c in 7-Zip before 23.00 allows an integer underflow and invalid read operation via a crafted 7Z archive.",
+    "cvss": [
+     {
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "version": "3.1",
+      "vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H",
+      "metrics": {
+       "baseScore": 7.8,
+       "exploitabilityScore": 1.9,
+       "impactScore": 5.9
+      },
+      "vendorMetadata": {}
+     },
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "type": "Secondary",
+      "version": "3.1",
+      "vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H",
+      "metrics": {
+       "baseScore": 7.8,
+       "exploitabilityScore": 1.9,
+       "impactScore": 5.9
+      },
+      "vendorMetadata": {}
+     }
+    ],
+    "epss": [
+     {
+      "cve": "CVE-2023-31102",
+      "epss": 0.53987,
+      "percentile": 0.99007,
+      "date": "2026-11-05"
+     }
+    ],
+    "cwes": [
+     {
+      "cve": "CVE-2023-31102",
+      "cwe": "CWE-191",
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     },
+     {
+      "cve": "CVE-2023-31102",
+      "cwe": "CWE-191",
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "type": "Secondary"
+     }
+    ],
+    "fix": {
+     "versions": [
+      "22.01"
+     ],
+     "state": "fixed",
+     "available": [
+      {
+       "version": "22.01",
+       "date": "2025-09-04",
+       "kind": "first-observed"
+      }
+     ]
+    },
+    "advisories": [],
+    "risk": 41.30005499999999
+   },
+   "relatedVulnerabilities": [],
+   "matchDetails": [
+    {
+     "type": "cpe-match",
+     "matcher": "stock-matcher",
+     "searchedBy": {
+      "namespace": "nvd:cpe",
+      "cpes": [
+       "cpe:2.3:a:7-zip:7-zip:19.00:*:*:*:*:*:*:*"
+      ],
+      "package": {
+       "name": "7-zip/7-zip",
+       "version": "19.00"
+      }
+     },
+     "found": {
+      "vulnerabilityID": "CVE-2023-31102",
+      "versionConstraint": "< 22.01 (unknown)",
+      "cpes": [
+       "cpe:2.3:a:7-zip:7-zip:*:*:*:*:*:*:*:*"
+      ]
+     },
+     "fix": {
+      "suggestedVersion": "22.01"
+     }
+    }
+   ],
+   "artifact": {
+    "id": "7-zip/7-zip@19.00",
+    "name": "7-zip/7-zip",
+    "version": "19.00",
+    "type": "UnknownPackage",
+    "locations": null,
+    "language": "",
+    "licenses": [],
+    "cpes": [
+     "cpe:2.3:a:7-zip:7-zip:19.00:*:*:*:*:*:*:*"
+    ],
+    "purl": "",
+    "upstreams": []
+   }
+  },
+  {
+   "vulnerability": {
+    "id": "CVE-2022-2068",
+    "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2022-2068",
+    "namespace": "nvd:cpe",
+    "severity": "High",
+    "urls": [
+     "https://cert-portal.siemens.com/productcert/pdf/ssa-332410.pdf",
+     "https://git.openssl.org/gitweb/?p=openssl.git%3Ba=commitdiff%3Bh=2c9c35870601b4a44d86ddbf512b38df38285cfa",
+     "https://git.openssl.org/gitweb/?p=openssl.git%3Ba=commitdiff%3Bh=7a9c027159fe9e1bbc2cd38a8a2914bff0d5abd9",
+     "https://git.openssl.org/gitweb/?p=openssl.git%3Ba=commitdiff%3Bh=9639817dac8bbbaa64d09efad7464ccc405527c7",
+     "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/6WZZBKUHQFGSKGNXXKICSRPL7AMVW5M5/",
+     "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/VCMNWKERPBKOEBNL7CLTTX3ZZCZLH7XA/",
+     "https://security.netapp.com/advisory/ntap-20220707-0008/",
+     "https://www.debian.org/security/2022/dsa-5169",
+     "https://www.openssl.org/news/secadv/20220621.txt",
+     "http://seclists.org/fulldisclosure/2024/Nov/0",
+     "https://gitlab.com/fraf0/cve-2022-1292-re_score-analysis",
+     "https://cert-portal.siemens.com/productcert/html/ssa-146325.html",
+     "https://cert-portal.siemens.com/productcert/html/ssa-332410.html",
+     "https://cert-portal.siemens.com/productcert/html/ssa-398330.html",
+     "https://cert-portal.siemens.com/productcert/html/ssa-794697.html"
+    ],
+    "description": "In addition to the c_rehash shell command injection identified in CVE-2022-1292, further circumstances where the c_rehash script does not properly sanitise shell metacharacters to prevent command injection were found by code review. When the CVE-2022-1292 was fixed it was not discovered that there are other places in the script where the file names of certificates being hashed were possibly passed to a command executed through the shell. This script is distributed by some operating systems in a manner where it is automatically executed. On such operating systems, an attacker could execute arbitrary commands with the privileges of the script. Use of the c_rehash script is considered obsolete and should be replaced by the OpenSSL rehash command line tool. Fixed in OpenSSL 3.0.4 (Affected 3.0.0,3.0.1,3.0.2,3.0.3). Fixed in OpenSSL 1.1.1p (Affected 1.1.1-1.1.1o). Fixed in OpenSSL 1.0.2zf (Affected 1.0.2-1.0.2ze).",
+    "cvss": [
+     {
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "version": "3.1",
+      "vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:R/S:U/C:H/I:H/A:H",
+      "metrics": {
+       "baseScore": 7.3,
+       "exploitabilityScore": 1.4,
+       "impactScore": 5.9
+      },
+      "vendorMetadata": {}
+     },
+     {
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "version": "2.0",
+      "vector": "AV:N/AC:L/Au:N/C:C/I:C/A:C",
+      "metrics": {
+       "baseScore": 10,
+       "exploitabilityScore": 10,
+       "impactScore": 10.1
+      },
+      "vendorMetadata": {}
+     },
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "type": "Secondary",
+      "version": "3.1",
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "metrics": {
+       "baseScore": 9.8,
+       "exploitabilityScore": 3.9,
+       "impactScore": 5.9
+      },
+      "vendorMetadata": {}
+     }
+    ],
+    "epss": [
+     {
+      "cve": "CVE-2022-2068",
+      "epss": 0.96391,
+      "percentile": 0.9988,
+      "date": "2026-11-05"
+     }
+    ],
+    "cwes": [
+     {
+      "cve": "CVE-2022-2068",
+      "cwe": "CWE-78",
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     },
+     {
+      "cve": "CVE-2022-2068",
+      "cwe": "CWE-78",
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "type": "Secondary"
+     }
+    ],
+    "fix": {
+     "versions": [
+      "1.0.2zf",
+      "1.1.1p",
+      "3.0.4"
+     ],
+     "state": "fixed",
+     "available": [
+      {
+       "version": "1.0.2zf",
+       "date": "2025-09-04",
+       "kind": "first-observed"
+      },
+      {
+       "version": "1.1.1p",
+       "date": "2025-09-04",
+       "kind": "first-observed"
+      },
+      {
+       "version": "3.0.4",
+       "date": "2025-09-04",
+       "kind": "first-observed"
+      }
+     ]
+    },
+    "advisories": [],
+    "risk": 79.68322666666667
+   },
+   "relatedVulnerabilities": [],
+   "matchDetails": [
+    {
+     "type": "cpe-match",
+     "matcher": "stock-matcher",
+     "searchedBy": {
+      "namespace": "nvd:cpe",
+      "cpes": [
+       "cpe:2.3:a:openssl:openssl:1.1.1k:*:*:*:*:*:*:*"
+      ],
+      "package": {
+       "name": "openssl/openssl",
+       "version": "1.1.1k"
+      }
+     },
+     "found": {
+      "vulnerabilityID": "CVE-2022-2068",
+      "versionConstraint": ">= 1.0.2, < 1.0.2zf||>= 1.1.1, < 1.1.1p||>= 3.0.0, < 3.0.4 (unknown)",
+      "cpes": [
+       "cpe:2.3:a:openssl:openssl:*:*:*:*:*:*:*:*"
+      ]
+     },
+     "fix": {
+      "suggestedVersion": "1.1.1p"
+     }
+    }
+   ],
+   "artifact": {
+    "id": "openssl/openssl@1.1.1k",
+    "name": "openssl/openssl",
+    "version": "1.1.1k",
+    "type": "UnknownPackage",
+    "locations": null,
+    "language": "",
+    "licenses": [],
+    "cpes": [
+     "cpe:2.3:a:openssl:openssl:1.1.1k:*:*:*:*:*:*:*"
+    ],
+    "purl": "",
+    "upstreams": []
+   }
+  },
+  {
+   "vulnerability": {
+    "id": "CVE-2021-3711",
+    "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2021-3711",
+    "namespace": "nvd:cpe",
+    "severity": "Critical",
+    "urls": [
+     "http://www.openwall.com/lists/oss-security/2021/08/26/2",
+     "https://cert-portal.siemens.com/productcert/pdf/ssa-389290.pdf",
+     "https://git.openssl.org/gitweb/?p=openssl.git%3Ba=commitdiff%3Bh=59f5e75f3bced8fc0e130d72a3f582cf7b480b46",
+     "https://lists.apache.org/thread.html/r18995de860f0e63635f3008fd2a6aca82394249476d21691e7c59c9e%40%3Cdev.tomcat.apache.org%3E",
+     "https://lists.apache.org/thread.html/rad5d9f83f0d11fb3f8bb148d179b8a9ad7c6a17f18d70e5805a713d1%40%3Cdev.tomcat.apache.org%3E",
+     "https://security.gentoo.org/glsa/202209-02",
+     "https://security.gentoo.org/glsa/202210-02",
+     "https://security.netapp.com/advisory/ntap-20210827-0010/",
+     "https://security.netapp.com/advisory/ntap-20211022-0003/",
+     "https://security.netapp.com/advisory/ntap-20240621-0006/",
+     "https://www.debian.org/security/2021/dsa-4963",
+     "https://www.openssl.org/news/secadv/20210824.txt",
+     "https://www.oracle.com/security-alerts/cpuapr2022.html",
+     "https://www.oracle.com/security-alerts/cpujan2022.html",
+     "https://www.oracle.com/security-alerts/cpuoct2021.html",
+     "https://www.tenable.com/security/tns-2021-16",
+     "https://www.tenable.com/security/tns-2022-02"
+    ],
+    "description": "In order to decrypt SM2 encrypted data an application is expected to call the API function EVP_PKEY_decrypt(). Typically an application will call this function twice. The first time, on entry, the \"out\" parameter can be NULL and, on exit, the \"outlen\" parameter is populated with the buffer size required to hold the decrypted plaintext. The application can then allocate a sufficiently sized buffer and call EVP_PKEY_decrypt() again, but this time passing a non-NULL value for the \"out\" parameter. A bug in the implementation of the SM2 decryption code means that the calculation of the buffer size required to hold the plaintext returned by the first call to EVP_PKEY_decrypt() can be smaller than the actual size required by the second call. This can lead to a buffer overflow when EVP_PKEY_decrypt() is called by the application a second time with a buffer that is too small. A malicious attacker who is able present SM2 content for decryption to an application could cause attacker chosen data to overflow the buffer by up to a maximum of 62 bytes altering the contents of other data held after the buffer, possibly changing application behaviour or causing the application to crash. The location of the buffer is application dependent but is typically heap allocated. Fixed in OpenSSL 1.1.1l (Affected 1.1.1-1.1.1k).",
+    "cvss": [
+     {
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "version": "3.1",
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "metrics": {
+       "baseScore": 9.8,
+       "exploitabilityScore": 3.9,
+       "impactScore": 5.9
+      },
+      "vendorMetadata": {}
+     },
+     {
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "version": "2.0",
+      "vector": "AV:N/AC:L/Au:N/C:P/I:P/A:P",
+      "metrics": {
+       "baseScore": 7.5,
+       "exploitabilityScore": 10,
+       "impactScore": 6.5
+      },
+      "vendorMetadata": {}
+     }
+    ],
+    "epss": [
+     {
+      "cve": "CVE-2021-3711",
+      "epss": 0.87816,
+      "percentile": 0.99762,
+      "date": "2026-11-05"
+     }
+    ],
+    "cwes": [
+     {
+      "cve": "CVE-2021-3711",
+      "cwe": "CWE-120",
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     }
+    ],
+    "fix": {
+     "versions": [
+      "1.1.1l"
+     ],
+     "state": "fixed",
+     "available": [
+      {
+       "version": "1.1.1l",
+       "date": "2025-09-04",
+       "kind": "first-observed"
+      }
+     ]
+    },
+    "advisories": [],
+    "risk": 77.49762000000001
+   },
+   "relatedVulnerabilities": [],
+   "matchDetails": [
+    {
+     "type": "cpe-match",
+     "matcher": "stock-matcher",
+     "searchedBy": {
+      "namespace": "nvd:cpe",
+      "cpes": [
+       "cpe:2.3:a:openssl:openssl:1.1.1k:*:*:*:*:*:*:*"
+      ],
+      "package": {
+       "name": "openssl/openssl",
+       "version": "1.1.1k"
+      }
+     },
+     "found": {
+      "vulnerabilityID": "CVE-2021-3711",
+      "versionConstraint": ">= 1.1.1, < 1.1.1l (unknown)",
+      "cpes": [
+       "cpe:2.3:a:openssl:openssl:*:*:*:*:*:*:*:*"
+      ]
+     },
+     "fix": {
+      "suggestedVersion": "1.1.1l"
+     }
+    }
+   ],
+   "artifact": {
+    "id": "openssl/openssl@1.1.1k",
+    "name": "openssl/openssl",
+    "version": "1.1.1k",
+    "type": "UnknownPackage",
+    "locations": null,
+    "language": "",
+    "licenses": [],
+    "cpes": [
+     "cpe:2.3:a:openssl:openssl:1.1.1k:*:*:*:*:*:*:*"
+    ],
+    "purl": "",
+    "upstreams": []
+   }
+  },
+  {
+   "vulnerability": {
+    "id": "CVE-2018-25032",
+    "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2018-25032",
+    "namespace": "nvd:cpe",
+    "severity": "High",
+    "urls": [
+     "http://seclists.org/fulldisclosure/2022/May/33",
+     "http://seclists.org/fulldisclosure/2022/May/35",
+     "http://seclists.org/fulldisclosure/2022/May/38",
+     "http://www.openwall.com/lists/oss-security/2022/03/25/2",
+     "http://www.openwall.com/lists/oss-security/2022/03/26/1",
+     "https://cert-portal.siemens.com/productcert/pdf/ssa-333517.pdf",
+     "https://github.com/madler/zlib/commit/5c44459c3b28a9bd3283aaceab7c615f8020c531",
+     "https://github.com/madler/zlib/compare/v1.2.11...v1.2.12",
+     "https://github.com/madler/zlib/issues/605",
+     "https://lists.debian.org/debian-lts-announce/2022/04/msg00000.html",
+     "https://lists.debian.org/debian-lts-announce/2022/05/msg00008.html",
+     "https://lists.debian.org/debian-lts-announce/2022/09/msg00023.html",
+     "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/DCZFIJBJTZ7CL5QXBFKTQ22Q26VINRUF/",
+     "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/DF62MVMH3QUGMBDCB3DY2ERQ6EBHTADB/",
+     "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/JZZPTWRYQULAOL3AW7RZJNVZ2UONXCV4/",
+     "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/NS2D2GFPFGOJUL4WQ3DUAY7HF4VWQ77F/",
+     "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/VOKNP2L734AEL47NRYGVZIKEFOUBQY5Y/",
+     "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/XOKFMSNQ5D5WGMALBNBXU3GE442V74WU/",
+     "https://security.gentoo.org/glsa/202210-42",
+     "https://security.netapp.com/advisory/ntap-20220526-0009/",
+     "https://security.netapp.com/advisory/ntap-20220729-0004/",
+     "https://support.apple.com/kb/HT213255",
+     "https://support.apple.com/kb/HT213256",
+     "https://support.apple.com/kb/HT213257",
+     "https://www.debian.org/security/2022/dsa-5111",
+     "https://www.openwall.com/lists/oss-security/2022/03/24/1",
+     "https://www.openwall.com/lists/oss-security/2022/03/28/1",
+     "https://www.openwall.com/lists/oss-security/2022/03/28/3",
+     "https://www.oracle.com/security-alerts/cpujul2022.html",
+     "https://cert-portal.siemens.com/productcert/html/ssa-333517.html",
+     "https://cert-portal.siemens.com/productcert/html/ssa-398330.html",
+     "https://cert-portal.siemens.com/productcert/html/ssa-419740.html",
+     "https://cert-portal.siemens.com/productcert/html/ssa-470355.html",
+     "https://cert-portal.siemens.com/productcert/html/ssa-565386.html",
+     "https://cert-portal.siemens.com/productcert/html/ssa-942865.html"
+    ],
+    "description": "zlib before 1.2.12 allows memory corruption when deflating (i.e., when compressing) if the input has many distant matches.",
+    "cvss": [
+     {
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "version": "3.1",
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "metrics": {
+       "baseScore": 7.5,
+       "exploitabilityScore": 3.9,
+       "impactScore": 3.6
+      },
+      "vendorMetadata": {}
+     },
+     {
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "version": "2.0",
+      "vector": "AV:N/AC:L/Au:N/C:N/I:N/A:P",
+      "metrics": {
+       "baseScore": 5,
+       "exploitabilityScore": 10,
+       "impactScore": 2.9
+      },
+      "vendorMetadata": {}
+     },
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "type": "Secondary",
+      "version": "3.1",
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "metrics": {
+       "baseScore": 7.5,
+       "exploitabilityScore": 3.9,
+       "impactScore": 3.6
+      },
+      "vendorMetadata": {}
+     }
+    ],
+    "epss": [
+     {
+      "cve": "CVE-2018-25032",
+      "epss": 0.51733,
+      "percentile": 0.98951,
+      "date": "2026-11-05"
+     }
+    ],
+    "cwes": [
+     {
+      "cve": "CVE-2018-25032",
+      "cwe": "CWE-787",
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     },
+     {
+      "cve": "CVE-2018-25032",
+      "cwe": "CWE-787",
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "type": "Secondary"
+     }
+    ],
+    "fix": {
+     "versions": [
+      "1.2.12"
+     ],
+     "state": "fixed",
+     "available": [
+      {
+       "version": "1.2.12",
+       "date": "2025-09-04",
+       "kind": "first-observed"
+      }
+     ]
+    },
+    "advisories": [],
+    "risk": 36.64420833333333
+   },
+   "relatedVulnerabilities": [],
+   "matchDetails": [
+    {
+     "type": "cpe-match",
+     "matcher": "stock-matcher",
+     "searchedBy": {
+      "namespace": "nvd:cpe",
+      "cpes": [
+       "cpe:2.3:a:zlib:zlib:1.2.11:*:*:*:*:*:*:*"
+      ],
+      "package": {
+       "name": "zlib/zlib",
+       "version": "1.2.11"
+      }
+     },
+     "found": {
+      "vulnerabilityID": "CVE-2018-25032",
+      "versionConstraint": ">= 1.2.2.2, < 1.2.12 (unknown)",
+      "cpes": [
+       "cpe:2.3:a:zlib:zlib:*:*:*:*:*:*:*:*"
+      ]
+     },
+     "fix": {
+      "suggestedVersion": "1.2.12"
+     }
+    }
+   ],
+   "artifact": {
+    "id": "zlib/zlib@1.2.11",
+    "name": "zlib/zlib",
+    "version": "1.2.11",
+    "type": "UnknownPackage",
+    "locations": null,
+    "language": "",
+    "licenses": [],
+    "cpes": [
+     "cpe:2.3:a:zlib:zlib:1.2.11:*:*:*:*:*:*:*"
+    ],
+    "purl": "",
+    "upstreams": []
+   }
+  },
+  {
+   "vulnerability": {
+    "id": "CVE-2022-37434",
+    "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2022-37434",
+    "namespace": "nvd:cpe",
+    "severity": "Critical",
+    "urls": [
+     "http://seclists.org/fulldisclosure/2022/Oct/37",
+     "http://seclists.org/fulldisclosure/2022/Oct/38",
+     "http://seclists.org/fulldisclosure/2022/Oct/41",
+     "http://seclists.org/fulldisclosure/2022/Oct/42",
+     "http://www.openwall.com/lists/oss-security/2022/08/05/2",
+     "http://www.openwall.com/lists/oss-security/2022/08/09/1",
+     "https://github.com/curl/curl/issues/9271",
+     "https://github.com/ivd38/zlib_overflow",
+     "https://github.com/madler/zlib/blob/21767c654d31d2dccdde4330529775c6c5fd5389/zlib.h#L1062-L1063",
+     "https://github.com/madler/zlib/commit/1eb7682f845ac9e9bf9ae35bbfb3bad5dacbd91d",
+     "https://github.com/madler/zlib/commit/eff308af425b67093bab25f80f1ae950166bece1",
+     "https://github.com/nodejs/node/blob/75b68c6e4db515f76df73af476eccf382bbcb00a/deps/zlib/inflate.c#L762-L764",
+     "https://lists.debian.org/debian-lts-announce/2022/09/msg00012.html",
+     "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/JWN4VE3JQR4O2SOUS5TXNLANRPMHWV4I/",
+     "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/NMBOJ77A7T7PQCARMDUK75TE6LLESZ3O/",
+     "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/PAVPQNCG3XRLCLNSQRM3KAN5ZFMVXVTY/",
+     "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/X5U7OTKZSHY2I3ZFJSR2SHFHW72RKGDK/",
+     "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/YRQAI7H4M4RQZ2IWZUEEXECBE5D56BH2/",
+     "https://security.netapp.com/advisory/ntap-20220901-0005/",
+     "https://security.netapp.com/advisory/ntap-20230427-0007/",
+     "https://support.apple.com/kb/HT213488",
+     "https://support.apple.com/kb/HT213489",
+     "https://support.apple.com/kb/HT213490",
+     "https://support.apple.com/kb/HT213491",
+     "https://support.apple.com/kb/HT213493",
+     "https://support.apple.com/kb/HT213494",
+     "https://www.debian.org/security/2022/dsa-5218",
+     "https://cert-portal.siemens.com/productcert/html/ssa-150063.html",
+     "https://cert-portal.siemens.com/productcert/html/ssa-202008.html",
+     "https://cert-portal.siemens.com/productcert/html/ssa-398330.html",
+     "https://cert-portal.siemens.com/productcert/html/ssa-470355.html",
+     "https://cert-portal.siemens.com/productcert/html/ssa-561322.html"
+    ],
+    "description": "zlib through 1.2.12 has a heap-based buffer over-read or buffer overflow in inflate in inflate.c via a large gzip header extra field. NOTE: only applications that call inflateGetHeader are affected. Some common applications bundle the affected zlib source code but may be unable to call inflateGetHeader (e.g., see the nodejs/node reference).",
+    "cvss": [
+     {
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "version": "3.1",
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "metrics": {
+       "baseScore": 9.8,
+       "exploitabilityScore": 3.9,
+       "impactScore": 5.9
+      },
+      "vendorMetadata": {}
+     },
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "type": "Secondary",
+      "version": "3.1",
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+      "metrics": {
+       "baseScore": 9.8,
+       "exploitabilityScore": 3.9,
+       "impactScore": 5.9
+      },
+      "vendorMetadata": {}
+     }
+    ],
+    "epss": [
+     {
+      "cve": "CVE-2022-37434",
+      "epss": 0.19243,
+      "percentile": 0.97344,
+      "date": "2026-11-05"
+     }
+    ],
+    "cwes": [
+     {
+      "cve": "CVE-2022-37434",
+      "cwe": "CWE-787",
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     },
+     {
+      "cve": "CVE-2022-37434",
+      "cwe": "CWE-120",
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "type": "Secondary"
+     }
+    ],
+    "fix": {
+     "versions": [],
+     "state": ""
+    },
+    "advisories": [],
+    "risk": 18.08842
+   },
+   "relatedVulnerabilities": [],
+   "matchDetails": [
+    {
+     "type": "cpe-match",
+     "matcher": "stock-matcher",
+     "searchedBy": {
+      "namespace": "nvd:cpe",
+      "cpes": [
+       "cpe:2.3:a:zlib:zlib:1.2.11:*:*:*:*:*:*:*"
+      ],
+      "package": {
+       "name": "zlib/zlib",
+       "version": "1.2.11"
+      }
+     },
+     "found": {
+      "vulnerabilityID": "CVE-2022-37434",
+      "versionConstraint": "<= 1.2.12 (unknown)",
+      "cpes": [
+       "cpe:2.3:a:zlib:zlib:*:*:*:*:*:*:*:*"
+      ]
+     }
+    }
+   ],
+   "artifact": {
+    "id": "zlib/zlib@1.2.11",
+    "name": "zlib/zlib",
+    "version": "1.2.11",
+    "type": "UnknownPackage",
+    "locations": null,
+    "language": "",
+    "licenses": [],
+    "cpes": [
+     "cpe:2.3:a:zlib:zlib:1.2.11:*:*:*:*:*:*:*"
+    ],
+    "purl": "",
+    "upstreams": []
+   }
+  }
+ ]
+}

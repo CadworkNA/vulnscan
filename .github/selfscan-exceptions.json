@@ -1,0 +1,13 @@
+{
+  "_comment": "Actively exploited (CISA KEV) vulnerabilities in vulnscan's own image that are temporarily accepted. CI fails on any KEV not listed here and on any entry past its expiry date. Keep entries short-lived and remove them as soon as upstream ships a fix.",
+  "exceptions": [
+    {
+      "id": "GO-2026-6888",
+      "aliases": ["CVE-2026-111497", "GHSA-c9gr-gmg4-2vqv"],
+      "package": "github.com/andybalholm/brotli",
+      "where": ["/usr/local/bin/syft", "/usr/local/bin/grype"],
+      "reason": "Compiled into the upstream Anchore syft/grype release binaries (brotli v1.2.0; fixed in v1.2.7). No upstream release contains the fix yet (checked 2026-11-07: syft 1.57.0, grype 0.121.2). Reachability in vulnscan's use has not been verified; accepted temporarily rather than maintaining patched forks. Bump SYFT_VERSION / GRYPE_VERSION as soon as a fixed release is available.",
+      "expires": "2026-12-07"
+    }
+  ]
+}

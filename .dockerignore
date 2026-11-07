@@ -1,0 +1,11 @@
+.git
+.github
+.env
+.env.*
+reports/
+vulnscan-results/
+*.xlsx
+docs/
+tests/
+__pycache__/
+*.pyc

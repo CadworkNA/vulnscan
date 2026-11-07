@@ -1,0 +1,795 @@
+{
+ "matches": [
+  {
+   "vulnerability": {
+    "id": "CVE-2025-0411",
+    "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2025-0411",
+    "namespace": "nvd:cpe",
+    "severity": "High",
+    "urls": [
+     "https://www.zerodayinitiative.com/advisories/ZDI-25-045/",
+     "http://www.openwall.com/lists/oss-security/2025/01/24/6",
+     "https://security.netapp.com/advisory/ntap-20250207-0005/",
+     "https://www.vicarius.io/vsociety/posts/cve-2025-0411-7-zip-mitigation-vulnerability",
+     "https://www.vicarius.io/vsociety/posts/cve-2025-0411-detection-7-zip-vulnerability",
+     "https://www.cisa.gov/known-exploited-vulnerabilities-catalog?field_cve=CVE-2025-0411"
+    ],
+    "description": "7-Zip Mark-of-the-Web Bypass Vulnerability. This vulnerability allows remote attackers to bypass the Mark-of-the-Web protection mechanism on affected installations of 7-Zip. User interaction is required to exploit this vulnerability in that the target must visit a malicious page or open a malicious file.\n\nThe specific flaw exists within the handling of archived files. When extracting files from a crafted archive that bears the Mark-of-the-Web, 7-Zip does not propagate the Mark-of-the-Web to the extracted files. An attacker can leverage this vulnerability to execute arbitrary code in the context of the current user. Was ZDI-CAN-25456.",
+    "cvss": [
+     {
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "version": "3.1",
+      "vector": "CVSS:3.1/AV:L/AC:H/PR:N/UI:R/S:U/C:H/I:H/A:H",
+      "metrics": {
+       "baseScore": 7,
+       "exploitabilityScore": 1.1,
+       "impactScore": 5.9
+      },
+      "vendorMetadata": {}
+     },
+     {
+      "source": "zdi-disclosures@trendmicro.com",
+      "type": "Secondary",
+      "version": "3.0",
+      "vector": "CVSS:3.0/AV:L/AC:H/PR:N/UI:R/S:U/C:H/I:H/A:H",
+      "metrics": {
+       "baseScore": 7,
+       "exploitabilityScore": 1.1,
+       "impactScore": 5.9
+      },
+      "vendorMetadata": {}
+     }
+    ],
+    "knownExploited": [
+     {
+      "cve": "CVE-2025-0411",
+      "vendorProject": "7-Zip",
+      "product": "7-Zip",
+      "dateAdded": "2025-02-06",
+      "requiredAction": "Apply mitigations per vendor instructions or discontinue use of the product if mitigations are unavailable.",
+      "dueDate": "2025-02-27",
+      "knownRansomwareCampaignUse": "unknown",
+      "urls": [
+       "https://www.7-zip.org/history.txt",
+       "https://nvd.nist.gov/vuln/detail/CVE-2025-0411"
+      ],
+      "cwes": [
+       "CWE-693"
+      ]
+     }
+    ],
+    "epss": [
+     {
+      "cve": "CVE-2025-0411",
+      "epss": 0.47574,
+      "percentile": 0.98849,
+      "date": "2026-11-05"
+     }
+    ],
+    "cwes": [
+     {
+      "cve": "CVE-2025-0411",
+      "cwe": "CWE-693",
+      "source": "zdi-disclosures@trendmicro.com",
+      "type": "Secondary"
+     }
+    ],
+    "fix": {
+     "versions": [
+      "24.09"
+     ],
+     "state": "fixed",
+     "available": [
+      {
+       "version": "24.09",
+       "date": "2025-09-04",
+       "kind": "first-observed"
+      }
+     ]
+    },
+    "advisories": [],
+    "risk": 76.125
+   },
+   "relatedVulnerabilities": [],
+   "matchDetails": [
+    {
+     "type": "cpe-match",
+     "matcher": "stock-matcher",
+     "searchedBy": {
+      "namespace": "nvd:cpe",
+      "cpes": [
+       "cpe:2.3:a:7-Zip:7-Zip:19.00:*:*:*:*:*:*:*"
+      ],
+      "package": {
+       "name": "7-Zip",
+       "version": "19.00"
+      }
+     },
+     "found": {
+      "vulnerabilityID": "CVE-2025-0411",
+      "versionConstraint": "< 24.09 (unknown)",
+      "cpes": [
+       "cpe:2.3:a:7-zip:7-zip:*:*:*:*:*:*:*:*"
+      ]
+     },
+     "fix": {
+      "suggestedVersion": "24.09"
+     }
+    }
+   ],
+   "artifact": {
+    "id": "589e4d209d779663",
+    "name": "7-Zip",
+    "version": "19.00",
+    "type": "binary",
+    "locations": [
+     {
+      "path": "/files/bin/7z1900-x64.exe",
+      "accessPath": "/files/bin/7z1900-x64.exe",
+      "annotations": {
+       "evidence": "primary"
+      }
+     }
+    ],
+    "language": "",
+    "licenses": [],
+    "cpes": [
+     "cpe:2.3:a:7-Zip:7-Zip:19.00:*:*:*:*:*:*:*",
+     "cpe:2.3:a:7-Zip:7_Zip:19.00:*:*:*:*:*:*:*",
+     "cpe:2.3:a:7_Zip:7-Zip:19.00:*:*:*:*:*:*:*",
+     "cpe:2.3:a:7_Zip:7_Zip:19.00:*:*:*:*:*:*:*",
+     "cpe:2.3:a:7:7-Zip:19.00:*:*:*:*:*:*:*",
+     "cpe:2.3:a:7:7_Zip:19.00:*:*:*:*:*:*:*"
+    ],
+    "purl": "",
+    "upstreams": []
+   }
+  },
+  {
+   "vulnerability": {
+    "id": "GHSA-x84v-xcm2-53pg",
+    "dataSource": "https://github.com/advisories/GHSA-x84v-xcm2-53pg",
+    "namespace": "github:language:python",
+    "severity": "High",
+    "urls": [
+     "https://nvd.nist.gov/vuln/detail/CVE-2018-18074",
+     "https://github.com/requests/requests/issues/4716",
+     "https://github.com/requests/requests/pull/4718",
+     "https://github.com/requests/requests/commit/c45d7c49ea75133e52ab22a8e9e13173938e36ff",
+     "https://access.redhat.com/errata/RHSA-2019:2035",
+     "https://bugs.debian.org/910766",
+     "http://docs.python-requests.org/en/master/community/updates/#release-and-version-history",
+     "http://lists.opensuse.org/opensuse-security-announce/2019-07/msg00024.html",
+     "https://www.oracle.com/security-alerts/cpujul2022.html",
+     "https://github.com/pypa/advisory-database/tree/main/vulns/requests/PYSEC-2018-28.yaml",
+     "https://usn.ubuntu.com/3790-1",
+     "https://usn.ubuntu.com/3790-2"
+    ],
+    "description": "Insufficiently Protected Credentials in Requests",
+    "cvss": [
+     {
+      "type": "Secondary",
+      "version": "3.1",
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+      "metrics": {
+       "baseScore": 7.5,
+       "exploitabilityScore": 3.9,
+       "impactScore": 3.6
+      },
+      "vendorMetadata": {}
+     }
+    ],
+    "epss": [
+     {
+      "cve": "CVE-2018-18074",
+      "epss": 0.06925,
+      "percentile": 0.94128,
+      "date": "2026-11-05"
+     }
+    ],
+    "cwes": [
+     {
+      "cve": "CVE-2018-18074",
+      "cwe": "CWE-522",
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     }
+    ],
+    "fix": {
+     "versions": [
+      "2.20.0"
+     ],
+     "state": "fixed",
+     "available": [
+      {
+       "version": "2.20.0",
+       "date": "2021-03-30",
+       "kind": "first-observed"
+      }
+     ]
+    },
+    "advisories": [],
+    "risk": 5.1937500000000005
+   },
+   "relatedVulnerabilities": [
+    {
+     "id": "CVE-2018-18074",
+     "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2018-18074",
+     "namespace": "nvd:cpe",
+     "severity": "High",
+     "urls": [
+      "http://docs.python-requests.org/en/master/community/updates/#release-and-version-history",
+      "http://lists.opensuse.org/opensuse-security-announce/2019-07/msg00024.html",
+      "https://access.redhat.com/errata/RHSA-2019:2035",
+      "https://bugs.debian.org/910766",
+      "https://github.com/requests/requests/commit/c45d7c49ea75133e52ab22a8e9e13173938e36ff",
+      "https://github.com/requests/requests/issues/4716",
+      "https://github.com/requests/requests/pull/4718",
+      "https://usn.ubuntu.com/3790-1/",
+      "https://usn.ubuntu.com/3790-2/",
+      "https://www.oracle.com/security-alerts/cpujul2022.html"
+     ],
+     "description": "The Requests package before 2.20.0 for Python sends an HTTP Authorization header to an http URI upon receiving a same-hostname https-to-http redirect, which makes it easier for remote attackers to discover credentials by sniffing the network.",
+     "cvss": [
+      {
+       "source": "nvd@nist.gov",
+       "type": "Primary",
+       "version": "3.1",
+       "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+       "metrics": {
+        "baseScore": 7.5,
+        "exploitabilityScore": 3.9,
+        "impactScore": 3.6
+       },
+       "vendorMetadata": {}
+      },
+      {
+       "source": "nvd@nist.gov",
+       "type": "Primary",
+       "version": "2.0",
+       "vector": "AV:N/AC:L/Au:N/C:P/I:N/A:N",
+       "metrics": {
+        "baseScore": 5,
+        "exploitabilityScore": 10,
+        "impactScore": 2.9
+       },
+       "vendorMetadata": {}
+      }
+     ],
+     "epss": [
+      {
+       "cve": "CVE-2018-18074",
+       "epss": 0.06925,
+       "percentile": 0.94128,
+       "date": "2026-11-05"
+      }
+     ],
+     "cwes": [
+      {
+       "cve": "CVE-2018-18074",
+       "cwe": "CWE-522",
+       "source": "nvd@nist.gov",
+       "type": "Primary"
+      }
+     ]
+    }
+   ],
+   "matchDetails": [
+    {
+     "type": "exact-direct-match",
+     "matcher": "python-matcher",
+     "searchedBy": {
+      "language": "python",
+      "namespace": "github:language:python",
+      "package": {
+       "name": "requests",
+       "version": "2.19.1"
+      }
+     },
+     "found": {
+      "vulnerabilityID": "GHSA-x84v-xcm2-53pg",
+      "versionConstraint": "<=2.19.1 (python)"
+     },
+     "fix": {
+      "suggestedVersion": "2.20.0"
+     }
+    }
+   ],
+   "artifact": {
+    "id": "5ab40dbbc010a5de",
+    "name": "requests",
+    "version": "2.19.1",
+    "type": "python",
+    "locations": [
+     {
+      "path": "/archives/python/wheels/requests-2.19.1-py2.py3-none-any.whl!/requests-2.19.1.dist-info/METADATA",
+      "accessPath": "/archives/python/wheels/requests-2.19.1-py2.py3-none-any.whl!/requests-2.19.1.dist-info/METADATA",
+      "annotations": {
+       "evidence": "primary"
+      }
+     },
+     {
+      "path": "/archives/python/wheels/requests-2.19.1-py2.py3-none-any.whl!/requests-2.19.1.dist-info/RECORD",
+      "accessPath": "/archives/python/wheels/requests-2.19.1-py2.py3-none-any.whl!/requests-2.19.1.dist-info/RECORD",
+      "annotations": {
+       "evidence": "supporting"
+      }
+     },
+     {
+      "path": "/archives/python/wheels/requests-2.19.1-py2.py3-none-any.whl!/requests-2.19.1.dist-info/top_level.txt",
+      "accessPath": "/archives/python/wheels/requests-2.19.1-py2.py3-none-any.whl!/requests-2.19.1.dist-info/top_level.txt",
+      "annotations": {
+       "evidence": "supporting"
+      }
+     }
+    ],
+    "language": "python",
+    "licenses": [
+     "Apache 2.0"
+    ],
+    "cpes": [
+     "cpe:2.3:a:python:requests:2.19.1:*:*:*:*:*:*:*"
+    ],
+    "purl": "pkg:pypi/requests@2.19.1",
+    "upstreams": []
+   }
+  },
+  {
+   "vulnerability": {
+    "id": "CVE-2025-6965",
+    "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2025-6965",
+    "namespace": "nvd:cpe",
+    "severity": "High",
+    "urls": [
+     "https://www.sqlite.org/src/info/5508b56fd24016c13981ec280ecdd833007c9d8dd595edb295b984c2b487b5c8",
+     "http://seclists.org/fulldisclosure/2025/Sep/49",
+     "http://seclists.org/fulldisclosure/2025/Sep/53",
+     "http://seclists.org/fulldisclosure/2025/Sep/56",
+     "http://seclists.org/fulldisclosure/2025/Sep/57",
+     "http://seclists.org/fulldisclosure/2025/Sep/58",
+     "http://www.openwall.com/lists/oss-security/2025/09/06/1",
+     "https://cert-portal.siemens.com/productcert/html/ssa-225816.html",
+     "https://cert-portal.siemens.com/productcert/html/ssa-485750.html",
+     "https://cert-portal.siemens.com/productcert/html/ssa-765416.html"
+    ],
+    "description": "There exists a vulnerability in SQLite versions before 3.50.2 where the number of aggregate terms could exceed the number of columns available. This could lead to a memory corruption issue. We recommend upgrading to version 3.50.2 or above.",
+    "cvss": [
+     {
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "version": "3.1",
+      "vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:C/C:L/I:H/A:L",
+      "metrics": {
+       "baseScore": 7.7,
+       "exploitabilityScore": 1.8,
+       "impactScore": 5.3
+      },
+      "vendorMetadata": {}
+     },
+     {
+      "source": "cve-coordination@google.com",
+      "type": "Secondary",
+      "version": "4.0",
+      "vector": "CVSS:4.0/AV:N/AC:H/AT:P/PR:L/UI:N/VC:L/VI:H/VA:L/SC:L/SI:H/SA:L/E:X/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:N/AU:N/R:U/V:D/RE:L/U:Green",
+      "metrics": {
+       "baseScore": 7.2
+      },
+      "vendorMetadata": {}
+     }
+    ],
+    "epss": [
+     {
+      "cve": "CVE-2025-6965",
+      "epss": 0.73452,
+      "percentile": 0.99467,
+      "date": "2026-11-05"
+     }
+    ],
+    "cwes": [
+     {
+      "cve": "CVE-2025-6965",
+      "cwe": "CWE-197",
+      "source": "cve-coordination@google.com",
+      "type": "Secondary"
+     }
+    ],
+    "fix": {
+     "versions": [
+      "3.50.2"
+     ],
+     "state": "fixed",
+     "available": [
+      {
+       "version": "3.50.2",
+       "date": "2025-09-04",
+       "kind": "first-observed"
+      }
+     ]
+    },
+    "advisories": [],
+    "risk": 54.90537
+   },
+   "relatedVulnerabilities": [],
+   "matchDetails": [
+    {
+     "type": "cpe-match",
+     "matcher": "stock-matcher",
+     "searchedBy": {
+      "namespace": "nvd:cpe",
+      "cpes": [
+       "cpe:2.3:a:SQLite:SQLite:3.35.5.0:*:*:*:*:*:*:*"
+      ],
+      "package": {
+       "name": "SQLite3",
+       "version": "3.35.5.0"
+      }
+     },
+     "found": {
+      "vulnerabilityID": "CVE-2025-6965",
+      "versionConstraint": "< 3.50.2 (unknown)",
+      "cpes": [
+       "cpe:2.3:a:sqlite:sqlite:*:*:*:*:*:*:*:*"
+      ]
+     },
+     "fix": {
+      "suggestedVersion": "3.50.2"
+     }
+    }
+   ],
+   "artifact": {
+    "id": "52912714c4e808c2",
+    "name": "SQLite3",
+    "version": "3.35.5.0",
+    "type": "binary",
+    "locations": [
+     {
+      "path": "/archives/runtime/python-3.8.10-embed-amd64.zip!/sqlite3.dll",
+      "accessPath": "/archives/runtime/python-3.8.10-embed-amd64.zip!/sqlite3.dll",
+      "annotations": {
+       "evidence": "primary"
+      }
+     }
+    ],
+    "language": "",
+    "licenses": [],
+    "cpes": [
+     "cpe:2.3:a:SQLite3:SQLite3:3.35.5.0:*:*:*:*:*:*:*",
+     "cpe:2.3:a:SQLite3:SQLite:3.35.5.0:*:*:*:*:*:*:*",
+     "cpe:2.3:a:SQLite:SQLite3:3.35.5.0:*:*:*:*:*:*:*",
+     "cpe:2.3:a:SQLite:SQLite:3.35.5.0:*:*:*:*:*:*:*"
+    ],
+    "purl": "",
+    "upstreams": []
+   }
+  },
+  {
+   "vulnerability": {
+    "id": "GHSA-38jv-5279-wg99",
+    "dataSource": "https://github.com/advisories/GHSA-38jv-5279-wg99",
+    "namespace": "github:language:python",
+    "severity": "High",
+    "urls": [
+     "https://github.com/urllib3/urllib3/security/advisories/GHSA-38jv-5279-wg99",
+     "https://github.com/urllib3/urllib3/commit/8864ac407bba8607950025e0979c4c69bc7abc7b",
+     "https://nvd.nist.gov/vuln/detail/CVE-2026-21441",
+     "https://lists.debian.org/debian-lts-announce/2026/01/msg00017.html"
+    ],
+    "description": "Decompression-bomb safeguards bypassed when following HTTP redirects (streaming API)",
+    "cvss": [
+     {
+      "type": "Secondary",
+      "version": "3.1",
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "metrics": {
+       "baseScore": 7.5,
+       "exploitabilityScore": 3.9,
+       "impactScore": 3.6
+      },
+      "vendorMetadata": {}
+     },
+     {
+      "type": "Secondary",
+      "version": "4.0",
+      "vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:H",
+      "metrics": {
+       "baseScore": 8.9
+      },
+      "vendorMetadata": {}
+     }
+    ],
+    "epss": [
+     {
+      "cve": "CVE-2026-21441",
+      "epss": 0.02922,
+      "percentile": 0.87093,
+      "date": "2026-11-05"
+     }
+    ],
+    "cwes": [
+     {
+      "cve": "CVE-2026-21441",
+      "cwe": "CWE-409",
+      "source": "security-advisories@github.com",
+      "type": "Secondary"
+     },
+     {
+      "cve": "CVE-2026-21441",
+      "cwe": "CWE-409",
+      "source": "0b0ca135-0b70-47e7-9f44-1890c2a1c46c",
+      "type": "Secondary"
+     }
+    ],
+    "fix": {
+     "versions": [
+      "2.6.3"
+     ],
+     "state": "fixed",
+     "available": [
+      {
+       "version": "2.6.3",
+       "date": "2026-01-08",
+       "kind": "first-observed"
+      }
+     ]
+    },
+    "advisories": [],
+    "risk": 2.29377
+   },
+   "relatedVulnerabilities": [
+    {
+     "id": "CVE-2026-21441",
+     "dataSource": "https://nvd.nist.gov/vuln/detail/CVE-2026-21441",
+     "namespace": "nvd:cpe",
+     "severity": "High",
+     "urls": [
+      "https://github.com/urllib3/urllib3/commit/8864ac407bba8607950025e0979c4c69bc7abc7b",
+      "https://github.com/urllib3/urllib3/security/advisories/GHSA-38jv-5279-wg99",
+      "https://lists.debian.org/debian-lts-announce/2026/01/msg00017.html",
+      "https://access.redhat.com/errata/RHSA-2026:0981",
+      "https://access.redhat.com/errata/RHSA-2026:0990",
+      "https://access.redhat.com/errata/RHSA-2026:10184",
+      "https://access.redhat.com/errata/RHSA-2026:1038",
+      "https://access.redhat.com/errata/RHSA-2026:1041",
+      "https://access.redhat.com/errata/RHSA-2026:1042",
+      "https://access.redhat.com/errata/RHSA-2026:1086",
+      "https://access.redhat.com/errata/RHSA-2026:1087",
+      "https://access.redhat.com/errata/RHSA-2026:1088",
+      "https://access.redhat.com/errata/RHSA-2026:1089",
+      "https://access.redhat.com/errata/RHSA-2026:1166",
+      "https://access.redhat.com/errata/RHSA-2026:1168",
+      "https://access.redhat.com/errata/RHSA-2026:1176",
+      "https://access.redhat.com/errata/RHSA-2026:1224",
+      "https://access.redhat.com/errata/RHSA-2026:1226",
+      "https://access.redhat.com/errata/RHSA-2026:1239",
+      "https://access.redhat.com/errata/RHSA-2026:1240",
+      "https://access.redhat.com/errata/RHSA-2026:1241",
+      "https://access.redhat.com/errata/RHSA-2026:1254",
+      "https://access.redhat.com/errata/RHSA-2026:1485",
+      "https://access.redhat.com/errata/RHSA-2026:14877",
+      "https://access.redhat.com/errata/RHSA-2026:1504",
+      "https://access.redhat.com/errata/RHSA-2026:1546",
+      "https://access.redhat.com/errata/RHSA-2026:1596",
+      "https://access.redhat.com/errata/RHSA-2026:1599",
+      "https://access.redhat.com/errata/RHSA-2026:1609",
+      "https://access.redhat.com/errata/RHSA-2026:1618",
+      "https://access.redhat.com/errata/RHSA-2026:1619",
+      "https://access.redhat.com/errata/RHSA-2026:1652",
+      "https://access.redhat.com/errata/RHSA-2026:1674",
+      "https://access.redhat.com/errata/RHSA-2026:1676",
+      "https://access.redhat.com/errata/RHSA-2026:1693",
+      "https://access.redhat.com/errata/RHSA-2026:1704",
+      "https://access.redhat.com/errata/RHSA-2026:1706",
+      "https://access.redhat.com/errata/RHSA-2026:1712",
+      "https://access.redhat.com/errata/RHSA-2026:1717",
+      "https://access.redhat.com/errata/RHSA-2026:1726",
+      "https://access.redhat.com/errata/RHSA-2026:1729",
+      "https://access.redhat.com/errata/RHSA-2026:1730",
+      "https://access.redhat.com/errata/RHSA-2026:1734",
+      "https://access.redhat.com/errata/RHSA-2026:1735",
+      "https://access.redhat.com/errata/RHSA-2026:1736",
+      "https://access.redhat.com/errata/RHSA-2026:17456",
+      "https://access.redhat.com/errata/RHSA-2026:17457",
+      "https://access.redhat.com/errata/RHSA-2026:17460",
+      "https://access.redhat.com/errata/RHSA-2026:17461",
+      "https://access.redhat.com/errata/RHSA-2026:17462",
+      "https://access.redhat.com/errata/RHSA-2026:17463",
+      "https://access.redhat.com/errata/RHSA-2026:1791",
+      "https://access.redhat.com/errata/RHSA-2026:1792",
+      "https://access.redhat.com/errata/RHSA-2026:1793",
+      "https://access.redhat.com/errata/RHSA-2026:1794",
+      "https://access.redhat.com/errata/RHSA-2026:1803",
+      "https://access.redhat.com/errata/RHSA-2026:1805",
+      "https://access.redhat.com/errata/RHSA-2026:1942",
+      "https://access.redhat.com/errata/RHSA-2026:1957",
+      "https://access.redhat.com/errata/RHSA-2026:19712",
+      "https://access.redhat.com/errata/RHSA-2026:2106",
+      "https://access.redhat.com/errata/RHSA-2026:2126",
+      "https://access.redhat.com/errata/RHSA-2026:2137",
+      "https://access.redhat.com/errata/RHSA-2026:2139",
+      "https://access.redhat.com/errata/RHSA-2026:2144",
+      "https://access.redhat.com/errata/RHSA-2026:2256",
+      "https://access.redhat.com/errata/RHSA-2026:2456",
+      "https://access.redhat.com/errata/RHSA-2026:2500",
+      "https://access.redhat.com/errata/RHSA-2026:25127",
+      "https://access.redhat.com/errata/RHSA-2026:2563",
+      "https://access.redhat.com/errata/RHSA-2026:2681",
+      "https://access.redhat.com/errata/RHSA-2026:2695",
+      "https://access.redhat.com/errata/RHSA-2026:2717",
+      "https://access.redhat.com/errata/RHSA-2026:2718",
+      "https://access.redhat.com/errata/RHSA-2026:2723",
+      "https://access.redhat.com/errata/RHSA-2026:2728",
+      "https://access.redhat.com/errata/RHSA-2026:2760",
+      "https://access.redhat.com/errata/RHSA-2026:2762",
+      "https://access.redhat.com/errata/RHSA-2026:2764",
+      "https://access.redhat.com/errata/RHSA-2026:2765",
+      "https://access.redhat.com/errata/RHSA-2026:28043",
+      "https://access.redhat.com/errata/RHSA-2026:28441",
+      "https://access.redhat.com/errata/RHSA-2026:2900",
+      "https://access.redhat.com/errata/RHSA-2026:2911",
+      "https://access.redhat.com/errata/RHSA-2026:2919",
+      "https://access.redhat.com/errata/RHSA-2026:2924",
+      "https://access.redhat.com/errata/RHSA-2026:2925",
+      "https://access.redhat.com/errata/RHSA-2026:2926",
+      "https://access.redhat.com/errata/RHSA-2026:3296",
+      "https://access.redhat.com/errata/RHSA-2026:33154",
+      "https://access.redhat.com/errata/RHSA-2026:3406",
+      "https://access.redhat.com/errata/RHSA-2026:3444",
+      "https://access.redhat.com/errata/RHSA-2026:3461",
+      "https://access.redhat.com/errata/RHSA-2026:3462",
+      "https://access.redhat.com/errata/RHSA-2026:3713",
+      "https://access.redhat.com/errata/RHSA-2026:3782",
+      "https://access.redhat.com/errata/RHSA-2026:3869",
+      "https://access.redhat.com/errata/RHSA-2026:3874",
+      "https://access.redhat.com/errata/RHSA-2026:3884",
+      "https://access.redhat.com/errata/RHSA-2026:3960",
+      "https://access.redhat.com/errata/RHSA-2026:4185",
+      "https://access.redhat.com/errata/RHSA-2026:41928",
+      "https://access.redhat.com/errata/RHSA-2026:4215",
+      "https://access.redhat.com/errata/RHSA-2026:4271",
+      "https://access.redhat.com/errata/RHSA-2026:4466",
+      "https://access.redhat.com/errata/RHSA-2026:4467",
+      "https://access.redhat.com/errata/RHSA-2026:44696",
+      "https://access.redhat.com/errata/RHSA-2026:51357",
+      "https://access.redhat.com/errata/RHSA-2026:5459",
+      "https://access.redhat.com/errata/RHSA-2026:61628",
+      "https://access.redhat.com/errata/RHSA-2026:6287",
+      "https://access.redhat.com/errata/RHSA-2026:6292",
+      "https://access.redhat.com/errata/RHSA-2026:8151",
+      "https://access.redhat.com/errata/RHSA-2026:8500",
+      "https://access.redhat.com/errata/RHSA-2026:8501",
+      "https://access.redhat.com/security/cve/CVE-2026-21441",
+      "https://bugzilla.redhat.com/show_bug.cgi?id=2427726",
+      "https://security.access.redhat.com/data/csaf/v2/vex/2026/cve-2026-21441.json"
+     ],
+     "description": "urllib3 is an HTTP client library for Python. urllib3's streaming API is designed for the efficient handling of large HTTP responses by reading the content in chunks, rather than loading the entire response body into memory at once. urllib3 can perform decoding or decompression based on the HTTP `Content-Encoding` header (e.g., `gzip`, `deflate`, `br`, or `zstd`). When using the streaming API, the library decompresses only the necessary bytes, enabling partial content consumption. Starting in version 1.22 and prior to version 2.6.3, for HTTP redirect responses, the library would read the entire response body to drain the connection and decompress the content unnecessarily. This decompression occurred even before any read methods were called, and configured read limits did not restrict the amount of decompressed data. As a result, there was no safeguard against decompression bombs. A malicious server could exploit this to trigger excessive resource consumption on the client. Applications and libraries are affected when they stream content from untrusted sources by setting `preload_content=False` when they do not disable redirects. Users should upgrade to at least urllib3 v2.6.3, in which the library does not decode content of redirect responses when `preload_content=False`. If upgrading is not immediately possible, disable redirects by setting `redirect=False` for requests to untrusted source.",
+     "cvss": [
+      {
+       "source": "nvd@nist.gov",
+       "type": "Primary",
+       "version": "3.1",
+       "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+       "metrics": {
+        "baseScore": 7.5,
+        "exploitabilityScore": 3.9,
+        "impactScore": 3.6
+       },
+       "vendorMetadata": {}
+      },
+      {
+       "source": "0b0ca135-0b70-47e7-9f44-1890c2a1c46c",
+       "type": "Secondary",
+       "version": "3.1",
+       "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+       "metrics": {
+        "baseScore": 7.5,
+        "exploitabilityScore": 3.9,
+        "impactScore": 3.6
+       },
+       "vendorMetadata": {}
+      },
+      {
+       "source": "security-advisories@github.com",
+       "type": "Secondary",
+       "version": "4.0",
+       "vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:H/E:X/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X",
+       "metrics": {
+        "baseScore": 8.9
+       },
+       "vendorMetadata": {}
+      }
+     ],
+     "epss": [
+      {
+       "cve": "CVE-2026-21441",
+       "epss": 0.02922,
+       "percentile": 0.87093,
+       "date": "2026-11-05"
+      }
+     ],
+     "cwes": [
+      {
+       "cve": "CVE-2026-21441",
+       "cwe": "CWE-409",
+       "source": "security-advisories@github.com",
+       "type": "Secondary"
+      },
+      {
+       "cve": "CVE-2026-21441",
+       "cwe": "CWE-409",
+       "source": "0b0ca135-0b70-47e7-9f44-1890c2a1c46c",
+       "type": "Secondary"
+      }
+     ]
+    }
+   ],
+   "matchDetails": [
+    {
+     "type": "exact-direct-match",
+     "matcher": "python-matcher",
+     "searchedBy": {
+      "language": "python",
+      "namespace": "github:language:python",
+      "package": {
+       "name": "urllib3",
+       "version": "1.23"
+      }
+     },
+     "found": {
+      "vulnerabilityID": "GHSA-38jv-5279-wg99",
+      "versionConstraint": ">=1.22,<2.6.3 (python)"
+     },
+     "fix": {
+      "suggestedVersion": "2.6.3"
+     }
+    }
+   ],
+   "artifact": {
+    "id": "f90237b94fa5c347",
+    "name": "urllib3",
+    "version": "1.23",
+    "type": "python",
+    "locations": [
+     {
+      "path": "/archives/python/wheels/urllib3-1.23-py2.py3-none-any.whl!/urllib3-1.23.dist-info/METADATA",
+      "accessPath": "/archives/python/wheels/urllib3-1.23-py2.py3-none-any.whl!/urllib3-1.23.dist-info/METADATA",
+      "annotations": {
+       "evidence": "primary"
+      }
+     },
+     {
+      "path": "/archives/python/wheels/urllib3-1.23-py2.py3-none-any.whl!/urllib3-1.23.dist-info/RECORD",
+      "accessPath": "/archives/python/wheels/urllib3-1.23-py2.py3-none-any.whl!/urllib3-1.23.dist-info/RECORD",
+      "annotations": {
+       "evidence": "supporting"
+      }
+     },
+     {
+      "path": "/archives/python/wheels/urllib3-1.23-py2.py3-none-any.whl!/urllib3-1.23.dist-info/top_level.txt",
+      "accessPath": "/archives/python/wheels/urllib3-1.23-py2.py3-none-any.whl!/urllib3-1.23.dist-info/top_level.txt",
+      "annotations": {
+       "evidence": "supporting"
+      }
+     }
+    ],
+    "language": "python",
+    "licenses": [
+     "MIT"
+    ],
+    "cpes": [
+     "cpe:2.3:a:python:urllib3:1.23:*:*:*:*:*:*:*"
+    ],
+    "purl": "pkg:pypi/urllib3@1.23",
+    "upstreams": []
+   }
+  }
+ ],
+ "source": {
+  "type": "directory",
+  "target": "/cache/stage/acme-cad-2.4"
+ },
+ "descriptor": {
+  "name": "grype",
+  "version": "0.121.0"
+ }
+}

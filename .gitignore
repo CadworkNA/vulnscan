@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+reports/
+vulnscan-results/
+vulnscan_*.xlsx
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+.coverage
+sbom/
+smoke/
