@@ -59,7 +59,7 @@ def message(current: str, latest: str) -> str | None:
     if not cur or not new or new <= cur:
         return None
     tag = latest if latest.startswith("v") else f"v{latest}"
-    return (f"vulnscan {tag[1:]} is available (this is {current})  ·  update: podman pull {IMAGE}:{new[0]}  ·  "
+    return (f"vulnscan {tag[1:]} is available (this is {current})  ·  update: docker pull {IMAGE}:{new[0]}  ·  "
             f"release notes: https://github.com/{REPO}/releases/tag/{tag}")
 
 

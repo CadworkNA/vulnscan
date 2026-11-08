@@ -23,6 +23,7 @@ podman run --rm -v "$PWD:/src:ro" -e PYTHONPATH=/src --entrypoint sh vulnscan -c
   'uv pip install -q --python /opt/venv/bin/python pytest pytest-cov openpyxl "cyclonedx-python-lib[json-validation]" \
    && cd /src && python -m pytest --cov=vulnscan'
 # detection test (network): ... python -m pytest -m integration
+# fuzzing: ... uv pip install ... atheris==3.1.0 && cd /tmp && FUZZ_SECONDS=60 sh /src/fuzz/run.sh
 ```
 
 Lint: `uv run --with ruff ruff check .` (line length 120, rules in `pyproject.toml`).

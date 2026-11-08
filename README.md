@@ -40,10 +40,10 @@ loudly, as incomplete, never as an all-clear.
    (see [Versions and releases](#versions-and-releases) for the available tags):
 
    ```sh
-   podman pull ghcr.io/cadworkna/vulnscan:1
+   docker pull ghcr.io/cadworkna/vulnscan:1
    ```
 
-   Or build it yourself: `podman build -t vulnscan .`
+   Or build it yourself: `docker build -t vulnscan .`
 
 2. **Create a `.env`** in the folder you will run from (copy [`.env.example`](.env.example)):
 
@@ -58,11 +58,11 @@ loudly, as incomplete, never as an all-clear.
 3. **Scan.** The report is written to the folder you mount at `/work` (here: the current folder):
 
    ```sh
-   podman run --rm -it --env-file .env -v vulnscan-cache:/cache -v "$PWD:/work" ghcr.io/cadworkna/vulnscan:1 --app_2026
-   podman run --rm -it --env-file .env -v vulnscan-cache:/cache -v "$PWD:/work" ghcr.io/cadworkna/vulnscan:1 --all
+   docker run --rm -it --env-file .env -v vulnscan-cache:/cache -v "$PWD:/work" ghcr.io/cadworkna/vulnscan:1 --app_2026
+   docker run --rm -it --env-file .env -v vulnscan-cache:/cache -v "$PWD:/work" ghcr.io/cadworkna/vulnscan:1 --all
    ```
 
-   PowerShell: use `${PWD}` instead of `$PWD`. Docker works the same (`docker run ...`).
+   PowerShell: use `${PWD}` instead of `$PWD`. Podman works the same (`podman run ...`).
 
 The named volume `vulnscan-cache` keeps the SVN checkouts and vulnerability databases between runs. The first
 checkout of a large repository takes a while (progress, size and ETA are shown); later runs only `svn update`.
@@ -157,7 +157,7 @@ vulnscan [--all | --<repo> ... | --repo NAME ... | --path DIR ...] [options]
 Scan a build folder that is not in SVN:
 
 ```sh
-podman run --rm -it -v vulnscan-cache:/cache -v "$PWD:/work" ghcr.io/cadworkna/vulnscan:1 --path dist --sbom
+docker run --rm -it -v vulnscan-cache:/cache -v "$PWD:/work" ghcr.io/cadworkna/vulnscan:1 --path dist --sbom
 ```
 
 <p align="center"><img src="docs/images/terminal-scan.png" alt="Live progress during a scan" width="820"></p>
@@ -311,13 +311,14 @@ vulnscan/
   report.py    Excel report        sbom.py   CycloneDX SBOM
   notify.py    email               schedule.py  cron
 tests/         unit, contract (recorded scanner output) and detection tests
+fuzz/          fuzz targets for hostile input (binary analysis, extraction paths)
 ```
 
 Tests run inside the image, against the working tree:
 
 ```sh
-podman build -t vulnscan .
-podman run --rm -v "$PWD:/src:ro" -e PYTHONPATH=/src --entrypoint sh vulnscan -c \
+docker build -t vulnscan .
+docker run --rm -v "$PWD:/src:ro" -e PYTHONPATH=/src --entrypoint sh vulnscan -c \
   'uv pip install -q --python /opt/venv/bin/python pytest pytest-cov openpyxl "cyclonedx-python-lib[json-validation]" \
    && cd /src && python -m pytest --cov=vulnscan'
 # full pipeline on public known-vulnerable artifacts (network, ~1 min):
@@ -331,6 +332,15 @@ podman run --rm -v "$PWD:/src:ro" -e PYTHONPATH=/src --entrypoint sh vulnscan -c
 - **The detection test** downloads public, known-vulnerable artifacts (hash-verified), runs the full pipeline and
   asserts that specific CVEs, KEV flags and end-of-life findings are still detected. CI runs it on every change and
   weekly, together with the self-scan.
+- **Fuzz targets** ([`fuzz/`](fuzz), Atheris/libFuzzer) feed hostile input to the code that handles it: the binary
+  analysis (PE version resources, identification rules, embedded signatures) must never crash or hang, and extraction
+  folders must stay inside the stage whatever names an archive carries. CI fuzzes each target for a minute on every
+  change and ten minutes weekly. Locally:
+
+  ```sh
+  docker run --rm -v "$PWD:/src:ro" -e PYTHONPATH=/src --entrypoint sh vulnscan -c \
+    'uv pip install -q --python /opt/venv/bin/python atheris==3.1.0 && cd /tmp && FUZZ_SECONDS=60 sh /src/fuzz/run.sh'
+  ```
 
 **Updating a scanner:** change its version and SHA-256 in the `Containerfile` (from the release's checksum file),
 run the tests, and refresh the fixtures if the output format changed. **Adding an identification rule:** extend

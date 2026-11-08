@@ -56,7 +56,7 @@ def build_parser(repo_names: list[str]) -> argparse.ArgumentParser:
                     "Writes an Excel report to the mounted /work folder.",
         epilog="repositories: " + (", ".join(f"--{n}" for n in repo_names) or
                                    "none configured (set VULNSCAN_REPOS, see README)") +
-               "\n\nexample:  podman run --rm -it --env-file .env -v vulnscan-cache:/cache "
+               "\n\nexample:  docker run --rm -it --env-file .env -v vulnscan-cache:/cache "
                "-v \"$PWD:/work\" ghcr.io/cadworkna/vulnscan --all",
         formatter_class=argparse.RawDescriptionHelpFormatter, allow_abbrev=False)
     sel = p.add_argument_group("repository selection (combine freely)")
