@@ -43,5 +43,8 @@ New functionality and bug fixes come with automated tests in [`tests/`](tests):
 - a **scanner upgrade** or output-format change: refreshed recorded output in [`tests/fixtures`](tests/fixtures), so
   the contract tests keep parsing real scanner output.
 
+- **new code that parses scanned content** (file formats, archive member names): extend a fuzz target in
+  [`fuzz/`](fuzz) or add one, so hostile input is fuzzed on every change.
+
 Coverage must not fall below the threshold CI enforces. See the [Development](README.md#development) section of the
 README for how to run the tests.

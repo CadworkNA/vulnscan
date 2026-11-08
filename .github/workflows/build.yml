@@ -122,6 +122,26 @@ jobs:
               uv pip install -q --python /opt/venv/bin/python pytest openpyxl &&
               cd /src && python -m pytest -q -m integration'
 
+      # Atheris/libFuzzer on the code that handles hostile input (fuzz/): binary analysis and extraction paths.
+      # One minute per target on every change, ten in the weekly run; crashing inputs are uploaded on failure.
+      - name: Fuzz
+        env:
+          FUZZ_SECONDS: ${{ github.event_name == 'schedule' && 600 || 60 }}
+        run: |
+          mkdir -p fuzz-out
+          docker run --rm -v "$PWD:/src:ro" -v "$PWD/fuzz-out:/out" -e PYTHONPATH=/src -e PYTHONDONTWRITEBYTECODE=1 \
+            -e FUZZ_SECONDS --entrypoint sh vulnscan:test -c '
+              uv pip install -q --python /opt/venv/bin/python atheris==3.1.0 &&
+              cd /out && sh /src/fuzz/run.sh'
+
+      - name: Upload fuzz crashes
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fuzz-crashes-${{ github.sha }}
+          path: fuzz-out/crashes/
+          if-no-files-found: ignore
+
       - name: CLI smoke test
         run: |
           docker run --rm vulnscan:test --version
@@ -267,7 +287,7 @@ jobs:
           ## Container image
 
           ${t}${t}${t}sh
-          podman pull $IMAGE:$version
+          docker pull $IMAGE:$version
           ${t}${t}${t}
 
           Digest ${t}$DIGEST${t}, tagged $tag_list. Verify its provenance and SBOM attestation:

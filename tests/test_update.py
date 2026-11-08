@@ -33,7 +33,7 @@ def test_message_only_for_a_newer_release(current, latest, newer):
 def test_message_says_how_to_update():
     msg = update.message("1.1.0", "v2.0.1")
     assert "2.0.1 is available (this is 1.1.0)" in msg
-    assert "podman pull ghcr.io/cadworkna/vulnscan:2" in msg
+    assert "docker pull ghcr.io/cadworkna/vulnscan:2" in msg
     assert msg.endswith("/releases/tag/v2.0.1")
 
 
