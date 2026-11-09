@@ -237,7 +237,7 @@ def headings(lines: list[str]) -> list[tuple[int, str]]:
     out = []
     for i, ln in enumerate(lines):
         s = ln.strip()
-        if not s or len(s) > 120 or ln[:1].isspace():
+        if not s or len(s) > 120 or ln.startswith(("  ", "\t")):  # one leading space: old OpenSSL CHANGES
             continue
         v = _line_version(s)
         if not v:
@@ -277,9 +277,18 @@ def slice_changelog(text: str, installed: str, target: str, need_target: bool = 
     return "\n\n".join(keep), seen_low
 
 
+def _substantive(body: str, release: dict) -> bool:
+    """Release notes that say something: not empty, not just the tag or name repeated, not a bare link."""
+    rest = body
+    for s in (str(release.get("tag_name") or ""), str(release.get("name") or "")):
+        rest = rest.replace(s, "") if s else rest
+    rest = re.sub(r"https?://\S+|[#*_`\-\s:.]+", " ", rest)
+    return len(rest.split()) >= 3
+
+
 def tag_version(tag: str) -> str | None:
-    """'v1.2.3', 'openssl-3.0.12', 'OpenSSL_1_1_1w', 'curl-8_4_0', 'release-2.0' -> version, or None."""
-    m = re.search(r"\d+(?:[._]\d+)+[a-z]?(?:-?(?:rc|beta|alpha|pre)[.-]?\d*)?", tag or "", re.I)
+    """'v1.2.3', 'openssl-3.0.12', 'OpenSSL_1_1_1w', 'curl-8_4_0', 'release-2.0', '7.1.2-34' -> version, or None."""
+    m = re.search(r"\d+(?:[._]\d+)+[a-z]?(?:-?(?:rc|beta|alpha|pre)[.-]?\d*|-\d+(?![\d.]))?", tag or "", re.I)
     if not m:
         return None
     v = m.group(0)
@@ -323,40 +332,48 @@ def html_text(page: str) -> str:
 # ---------------------------------------------------------------------------
 # Native libraries (identified in binaries): curated sources, keyed by the NVD product name
 # ---------------------------------------------------------------------------
-# changelogs: files on the default branch, sliced to the version range; guides: (path, ref, when) included
-# whole when the upgrade crosses a major version ('major') or always ('always'); releases: GitHub release notes
+# changelogs: files sliced to the version range, read as of the target's release tag (tags), else its release
+# branch (branches), else the default branch: maintained lines often list their patch releases only there.
+# Templates: {v} version, {u} with underscores, {d} with dashes, {maj} {min} {patch} its numbers.
+# guides: (path, ref, when) included whole when the upgrade crosses a major version ('major') or always;
+# releases: GitHub release notes
 NATIVE: dict[str, dict] = {
-    "openssl": {"repo": "openssl/openssl", "changelogs": ["CHANGES.md", "NEWS.md"],
+    "openssl": {"repo": "openssl/openssl", "changelogs": ["CHANGES.md", "NEWS.md", "CHANGES", "NEWS"],
+                "tags": ["openssl-{v}", "OpenSSL_{u}"],
+                "branches": ["openssl-{maj}.{min}", "OpenSSL_{maj}_{min}_{patch}-stable"],
                 "guides": [("doc/man7/ossl-guide-migration.pod", "HEAD", "major")]},
     "curl": {"repo": "curl/curl", "html": ["https://curl.se/changes.html"], "releases": True},
-    "zlib": {"repo": "madler/zlib", "changelogs": ["ChangeLog"]},
-    "libpng": {"repo": "pnggroup/libpng", "changelogs": ["CHANGES"]},
-    "libjpeg-turbo": {"repo": "libjpeg-turbo/libjpeg-turbo", "changelogs": ["ChangeLog.md"]},
-    "libexpat": {"repo": "libexpat/libexpat", "changelogs": ["expat/Changes"]},
-    "ffmpeg": {"repo": "FFmpeg/FFmpeg", "changelogs": ["Changelog", "doc/APIchanges"]},
+    "zlib": {"repo": "madler/zlib", "changelogs": ["ChangeLog"], "tags": ["v{v}"]},
+    "libpng": {"repo": "pnggroup/libpng", "changelogs": ["CHANGES"], "tags": ["v{v}"]},
+    "libjpeg-turbo": {"repo": "libjpeg-turbo/libjpeg-turbo", "changelogs": ["ChangeLog.md"], "tags": ["{v}"]},
+    "libexpat": {"repo": "libexpat/libexpat", "changelogs": ["expat/Changes"], "tags": ["R_{u}"]},
+    "ffmpeg": {"repo": "FFmpeg/FFmpeg", "changelogs": ["Changelog", "doc/APIchanges"], "tags": ["n{v}"]},
     "7-zip": {"repo": "ip7z/7zip", "releases": True},
-    "libxml2": {"repo": "GNOME/libxml2", "changelogs": ["NEWS"]},
-    "libxslt": {"repo": "GNOME/libxslt", "changelogs": ["NEWS"]},
-    "freetype": {"repo": "freetype/freetype", "changelogs": ["docs/CHANGES"]},
-    "libwebp": {"repo": "webmproject/libwebp", "changelogs": ["NEWS"]},
-    "libssh2": {"repo": "libssh2/libssh2", "changelogs": ["RELEASE-NOTES"], "releases": True},
-    "libssh": {"repo": "libssh/libssh-mirror", "changelogs": ["CHANGELOG"]},
-    "libarchive": {"repo": "libarchive/libarchive", "changelogs": ["NEWS"]},
+    "libxml2": {"repo": "GNOME/libxml2", "changelogs": ["NEWS"], "tags": ["v{v}"], "branches": ["{maj}.{min}"]},
+    "libxslt": {"repo": "GNOME/libxslt", "changelogs": ["NEWS"], "tags": ["v{v}"], "branches": ["{maj}.{min}"]},
+    "freetype": {"repo": "freetype/freetype", "changelogs": ["docs/CHANGES"], "tags": ["VER-{d}"]},
+    "libwebp": {"repo": "webmproject/libwebp", "changelogs": ["NEWS"], "tags": ["v{v}"]},
+    "libssh2": {"repo": "libssh2/libssh2", "changelogs": ["RELEASE-NOTES"], "tags": ["libssh2-{v}"],
+                "releases": True},
+    "libssh": {"repo": "libssh/libssh-mirror", "changelogs": ["CHANGELOG"], "tags": ["libssh-{v}"]},
+    "libarchive": {"repo": "libarchive/libarchive", "changelogs": ["NEWS"], "tags": ["v{v}"]},
     "nghttp2": {"repo": "nghttp2/nghttp2", "releases": True},
-    "electron": {"repo": "electron/electron", "changelogs": ["docs/breaking-changes.md"], "releases": True},
-    "lz4": {"repo": "lz4/lz4", "changelogs": ["NEWS"]},
-    "xz": {"repo": "tukaani-project/xz", "changelogs": ["NEWS"]},
-    "pcre2": {"repo": "PCRE2Project/pcre2", "changelogs": ["ChangeLog"]},
-    "gdal": {"repo": "OSGeo/gdal", "changelogs": ["NEWS.md", "MIGRATION_GUIDE.TXT"]},
-    "proj": {"repo": "OSGeo/PROJ", "changelogs": ["NEWS.md"]},
+    "electron": {"repo": "electron/electron", "changelogs": ["docs/breaking-changes.md"], "tags": ["v{v}"],
+                 "releases": True},
+    "lz4": {"repo": "lz4/lz4", "changelogs": ["NEWS"], "tags": ["v{v}"]},
+    "xz": {"repo": "tukaani-project/xz", "changelogs": ["NEWS"], "tags": ["v{v}"]},
+    "pcre2": {"repo": "PCRE2Project/pcre2", "changelogs": ["ChangeLog"], "tags": ["pcre2-{v}"]},
+    "gdal": {"repo": "OSGeo/gdal", "changelogs": ["NEWS.md", "MIGRATION_GUIDE.TXT"], "tags": ["v{v}"]},
+    "proj": {"repo": "OSGeo/PROJ", "changelogs": ["NEWS.md", "NEWS"], "tags": ["{v}"]},
     "hdf5": {"repo": "HDFGroup/hdf5", "changelogs": ["release_docs/CHANGELOG.md"], "releases": True},
-    "harfbuzz": {"repo": "harfbuzz/harfbuzz", "changelogs": ["NEWS"]},
-    "libzip": {"repo": "nih-at/libzip", "changelogs": ["NEWS.md"]},
-    "openexr": {"repo": "AcademySoftwareFoundation/openexr", "changelogs": ["CHANGES.md"]},
-    "openvdb": {"repo": "AcademySoftwareFoundation/openvdb", "changelogs": ["CHANGES"]},
-    "mbed_tls": {"repo": "Mbed-TLS/mbedtls", "changelogs": ["ChangeLog"],
+    "harfbuzz": {"repo": "harfbuzz/harfbuzz", "changelogs": ["NEWS"], "tags": ["{v}"]},
+    "libzip": {"repo": "nih-at/libzip", "changelogs": ["NEWS.md"], "tags": ["v{v}"]},
+    "openexr": {"repo": "AcademySoftwareFoundation/openexr", "changelogs": ["CHANGES.md"], "tags": ["v{v}"]},
+    "openvdb": {"repo": "AcademySoftwareFoundation/openvdb", "changelogs": ["CHANGES"], "tags": ["v{v}"]},
+    "mbed_tls": {"repo": "Mbed-TLS/mbedtls", "changelogs": ["ChangeLog"], "tags": ["mbedtls-{v}", "v{v}"],
                  "guides": [("docs/3.0-migration-guide.md", "mbedtls-3.6", "major"),
                             ("docs/4.0-migration-guide.md", "HEAD", "major")]},
+    "libtiff": {"gitlab": "libtiff/libtiff", "per_version": ("doc/releases", r"^v(\d+\.\d+\.\d+)\.rst$")},
     "opencv": {"repo": "opencv/opencv", "releases": True},
     "international_components_for_unicode": {"repo": "unicode-org/icu", "releases": True},
     "assimp": {"repo": "assimp/assimp", "releases": True},
@@ -366,6 +383,27 @@ NATIVE: dict[str, dict] = {
     "python": {"special": "python"}, "cpython": {"special": "python"},
     "qt": {"special": "qt"},
 }
+# other names the engines use for the same libraries (syft/grype binary classifiers, retire.js, CPE products)
+NATIVE_ALIASES = {
+    "sqlite3": "sqlite", "qt4": "qt", "qt5": "qt", "qt6": "qt", "qtbase": "qt", "libcurl": "curl",
+    "expat": "libexpat", "libxml": "libxml2", "mbedtls": "mbed_tls", "icu": "international_components_for_unicode",
+    "libjpeg": "libjpeg-turbo", "7zip": "7-zip", "lzma": "xz", "liblzma": "xz",
+}
+
+
+def native_spec(name: str) -> tuple[str, dict] | None:
+    key = (name or "").strip().lower()
+    key = NATIVE_ALIASES.get(key, key)
+    return (key, NATIVE[key]) if key in NATIVE else None
+
+
+def changelog_refs(spec: dict, target: str) -> list[str]:
+    """Git refs to read a changelog at: the target's release tag(s), its release branch(es), then HEAD."""
+    n = numbers(target) + [0, 0, 0]
+    fields = {"v": target, "u": target.replace(".", "_"), "d": target.replace(".", "-"),
+              "maj": n[0], "min": n[1], "patch": n[2]}
+    refs = [t.format(**fields) for t in spec.get("tags", []) + spec.get("branches", [])]
+    return list(dict.fromkeys(refs + ["HEAD"]))
 
 
 def raw_github(repo: str, path: str, ref: str = "HEAD") -> str:
@@ -422,7 +460,8 @@ class Collector:
     def _github_releases(self, ev: Evidence, repo: str, installed: str, target: str) -> bool:
         lo, hi = vkey(installed), vkey(target)
         picked, seen_low, seen_target = [], False, False
-        ended, cut = False, False  # complete only if the listing ended normally and nothing was cut
+        # complete only if the listing ended normally, nothing was cut and every release in range had notes
+        ended, cut, empty = False, False, False
         for page in range(1, MAX_RELEASE_PAGES + 1):
             try:
                 rels = self.f.json(f"https://api.github.com/repos/{repo}/releases?per_page=100&page={page}",
@@ -456,8 +495,10 @@ class Collector:
                     body = str(r.get("body") or "").strip()
                     if len(body) > MAX_RELEASE_BODY:
                         body, cut = body[:MAX_RELEASE_BODY], True
-                    if body:
+                    if _substantive(body, r):
                         picked.append((k, v, body))
+                    else:
+                        empty = True  # a release in the range without notes: what changed there is unknown
             # releases come newest first, but several release lines interleave: stop at the last page, or once
             # a whole page is below the range; running into MAX_RELEASE_PAGES leaves the notes partial
             if len(rels) < 100 or (seen_low and below):
@@ -468,7 +509,7 @@ class Collector:
         picked.sort(key=lambda p: p[0], reverse=True)
         text = "\n\n".join(f"## {v}\n{body}" for _, v, body in picked)
         ev.add(Source(f"GitHub releases of {repo}", f"https://github.com/{repo}/releases", text[:MAX_SOURCE_CHARS],
-                      ended and seen_low and not cut and len(text) <= MAX_SOURCE_CHARS))
+                      ended and seen_low and not cut and not empty and len(text) <= MAX_SOURCE_CHARS))
         return True
 
     def _repo_files(self, ev: Evidence, repo: str, installed: str, target: str) -> None:
@@ -501,10 +542,11 @@ class Collector:
         if vkey(installed) is None or vkey(target) is None:
             ev.problems.append("version cannot be compared")
             return ev
-        spec = NATIVE.get(name.lower())
-        if not spec:
+        found = native_spec(name)
+        if not found:
             ev.problems.append(f"no known release-note source for {name}")
             return ev
+        _, spec = found
         special = spec.get("special")
         if special == "python":
             self._python(ev, installed, target)
@@ -517,9 +559,12 @@ class Collector:
             return ev
         repo, project = spec.get("repo", ""), spec.get("gitlab", "")
         ev.repo = repo or project
+        refs = changelog_refs(spec, target) if repo else ["HEAD"]
         for path in spec.get("changelogs", []):
-            url = raw_github(repo, path) if repo else raw_gitlab(project, path)
-            self._add_changelog(ev, url, f"{ev.repo}: {path}", installed, target)
+            for ref in refs:  # the first ref whose copy of the file reaches the target wins
+                url = raw_github(repo, path, ref) if repo else raw_gitlab(project, path, ref)
+                if self._add_changelog(ev, url, f"{ev.repo}: {path} ({ref})", installed, target):
+                    break
         for url in spec.get("html", []):
             self._add_changelog(ev, url, url, installed, target)
         for path, ref, when in spec.get("guides", []):
@@ -527,7 +572,39 @@ class Collector:
                 self._add_whole(ev, raw_github(repo, path, ref), f"{repo}: {path} (migration guide)")
         if spec.get("releases") and repo:
             self._github_releases(ev, repo, installed, target)
+        if spec.get("per_version") and project:
+            self._gitlab_per_version(ev, project, *spec["per_version"], installed, target)
         return ev
+
+    def _gitlab_per_version(self, ev: Evidence, project: str, folder: str, pattern: str, installed: str,
+                            target: str) -> None:
+        """One release-notes file per version in a GitLab folder (libtiff: doc/releases/v4.7.2.rst)."""
+        lo, hi = vkey(installed), vkey(target)
+        try:
+            items = self.f.json(f"https://gitlab.com/api/v4/projects/{q(project)}/repository/tree"
+                                f"?path={q(folder)}&per_page=100")
+        except FetchError as exc:
+            ev.problems.append(f"{project} release notes: {exc}")
+            return
+        found = []
+        for it in items if isinstance(items, list) else []:
+            m = re.match(pattern, str((it or {}).get("name") or ""))
+            if m and vkey(m.group(1)) is not None:
+                found.append((vkey(m.group(1)), m.group(1), it["name"]))
+        wanted = sorted((f for f in found if lo < f[0] <= hi), reverse=True)
+        if not wanted:
+            return
+        complete = min(found)[0] <= lo and max(found)[0] >= hi and len(wanted) <= MAX_PER_VERSION_FILES
+        texts = []
+        for _, v, name in wanted[:MAX_PER_VERSION_FILES]:
+            try:
+                texts.append(f"## {v}\n" + self.f.text(raw_gitlab(project, f"{folder}/{name}")))
+            except FetchError:
+                complete = False
+        if texts:
+            text = "\n\n".join(texts)
+            ev.add(Source(f"{project}: {folder}", f"https://gitlab.com/{project}/-/tree/HEAD/{folder}",
+                          text[:MAX_SOURCE_CHARS], complete and len(text) <= MAX_SOURCE_CHARS))
 
     def _python(self, ev: Evidence, installed: str, target: str) -> None:
         """What's New of every minor version crossed (with its 'Porting to' section) + per-release NEWS."""
@@ -935,13 +1012,17 @@ def usage(binaries: list[dict], component: str, version: str, repos: list[str] |
     Importers are the other binaries of the same repository that import from those DLLs (a same-named DLL of
     another version shipped elsewhere is not this one). Statically linked copies have no DLL, so their use cannot
     be seen here."""
-    name = component.lower()
+    def canon(n: str) -> str:  # 'Qt5' (packages engine) and 'qt' (binary identification) are one library
+        n = (n or "").strip().lower()
+        return NATIVE_ALIASES.get(n, n)
+
+    name, want = canon(component), vkey(version)  # vkey: 5.11.0.0 == 5.11.0
     family = DLL_FAMILY.get(name)
     binaries = [b for b in binaries if repos is None or b.get("repo", "") in repos]
     dlls = set()  # (repository, file name)
     for b in binaries:
         fname = (b.get("repo", ""), b["path"].rsplit("/", 1)[-1].lower())
-        if any(c.get("product", "").lower() == name and c.get("version") == version
+        if any(canon(c.get("product", "")) == name and vkey(str(c.get("version") or "")) == want
                and not str(c.get("rule", "")).startswith("embedded signature") for c in b.get("components", [])):
             dlls.add(fname)
         elif family and re.match(family, fname[1]) and numbers(str(b.get("file_version") or "")

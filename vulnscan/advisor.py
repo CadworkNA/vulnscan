@@ -104,6 +104,13 @@ class AIConfigError(ValueError):
     pass
 
 
+class BudgetExceeded(RuntimeError):
+    pass
+
+
+DEFAULT_MAX_TOKENS = 2_000_000  # input + output tokens per run, across all upgrades
+
+
 @contextmanager
 def _key_files():
     """Provider keys may come from files (NAME_FILE convention, as util.get_secret), e.g.
@@ -288,6 +295,7 @@ class Advisor:
         self.sem = asyncio.Semaphore(concurrency or _int_env("VULNSCAN_AI_CONCURRENCY", 4))
         self.fetch_sem = asyncio.Semaphore(4)  # registries and GitHub: a few components at a time
         self.usage = {"requests": 0, "input_tokens": 0, "output_tokens": 0, "cached": 0}
+        self.budget = _int_env("VULNSCAN_AI_MAX_TOKENS", DEFAULT_MAX_TOKENS)
         CACHE.mkdir(parents=True, exist_ok=True)
 
     async def _run(self, agent, kind: str, prompt: str):
@@ -304,6 +312,9 @@ class Advisor:
         if self.offline:
             raise RuntimeError("offline and no cached analysis")
         async with self.sem:
+            spent = self.usage["input_tokens"] + self.usage["output_tokens"]
+            if spent >= self.budget:  # checked under the semaphore: at most `concurrency` calls overshoot
+                raise BudgetExceeded(f"token budget of {self.budget:,} reached (VULNSCAN_AI_MAX_TOKENS)")
             result = await agent.run(prompt)
         u = result.usage
         self.usage["requests"] += u.requests
@@ -383,7 +394,7 @@ class Advisor:
                 coverage = "partial"
         summary, migration = "", []
         if n_chunks and len(errors) == n_chunks:
-            summary = "Not analysed: the model could not be reached or gave no valid answer."
+            summary = f"Not analysed: {errors[0]}"
             coverage = "none"
         elif changes or ev.requirements:
             try:
@@ -452,9 +463,11 @@ def advise(rows: list[dict], binaries: list[dict], components: list[dict], offli
                 r["advice"] = _not_analysed(f"Not analysed: {type(exc).__name__}: {exc}", [str(exc)])
             done += 1
             a = r["advice"]
-            log.info("%d/%d  %s %s -> %s: %s breaking change (%d documented, notes %s)", done, len(todo),
-                     r["component"], r["version"], r["target"], a["verdict"], len(a["changes"]), a["coverage"],
-                     extra={"stage": "advice"})
+            u = adv.usage
+            log.info("%d/%d  %s %s -> %s: %s breaking change (%d documented, notes %s)  ·  so far %d model "
+                     "requests, %s tokens", done, len(todo), r["component"], r["version"], r["target"],
+                     a["verdict"], len(a["changes"]), a["coverage"], u["requests"],
+                     f"{u['input_tokens'] + u['output_tokens']:,}", extra={"stage": "advice"})
 
         await asyncio.gather(*(one(r) for r in todo))
         return adv

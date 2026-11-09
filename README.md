@@ -207,9 +207,13 @@ ANTHROPIC_API_KEY=...            # or ANTHROPIC_API_KEY_FILE=/run/secrets/anthro
 GITHUB_TOKEN=...                 # optional, no scopes needed: 5,000 GitHub requests an hour instead of 60
 ```
 
-Release notes and model answers are cached in the cache volume (`/cache/db/advisor`), so repeated scans cost
-almost nothing and `--offline` reuses them. `VULNSCAN_AI_MAX_UPGRADES` (default 100, highest priority first)
-bounds the cost of one run; the model, the number of requests and tokens are recorded on the Summary sheet.
+**Cost.** The model is asked per *upgrade* (one row of the Upgrades sheet: a component version), not per
+finding, and only when release notes were found: one request per 40,000 characters of notes (at most 8) plus a
+short summary. Two limits bound one run: `VULNSCAN_AI_MAX_UPGRADES` (default 100, highest priority first) and
+`VULNSCAN_AI_MAX_TOKENS` (default 2,000,000 input + output tokens; after that no more requests are made and the
+remaining upgrades say so). Release notes and model answers are cached in the cache volume (`/cache/db/advisor`),
+so a repeated scan only pays for what changed, and `--offline` reuses them. The model, requests and tokens are
+shown at the end of the run and recorded on the Summary sheet.
 
 ## Scheduled scans and email
 
@@ -246,7 +250,7 @@ read from a file with the `_FILE` suffix, e.g. `SMTP_PASSWORD_FILE=/run/secrets/
 | `VULNSCAN_UPDATE_CHECK` | `0` to skip the start-up check for a newer vulnscan release (one GitHub request a day, skipped with `--offline`; it only warns, never changes the result) |
 | `VULNSCAN_AI_MODEL` | `--ai` only: Pydantic AI model string, e.g. `anthropic:claude-sonnet-5-5`, plus the provider's key (`ANTHROPIC_API_KEY`) |
 | `GITHUB_TOKEN` | `--ai` only, optional: GitHub token for release notes (higher rate limit; sent to `api.github.com` only) |
-| `VULNSCAN_AI_MAX_UPGRADES`, `VULNSCAN_AI_CONCURRENCY` | `--ai` only: upgrades analysed per run (default 100) and parallel model requests (default 4) |
+| `VULNSCAN_AI_MAX_UPGRADES`, `VULNSCAN_AI_MAX_TOKENS`, `VULNSCAN_AI_CONCURRENCY` | `--ai` only: upgrades analysed per run (default 100), token budget per run (default 2,000,000) and parallel model requests (default 4) |
 | `TZ` | time zone for schedules and timestamps, e.g. `America/Toronto` |
 | `VULNSCAN_TAG`, `VULNSCAN_REPORTS`, `VULNSCAN_ARGS` | Compose only: image tag, report folder on the host, arguments of the scheduled service |
 

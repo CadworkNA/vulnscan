@@ -540,9 +540,14 @@ def final_summary(s: dict, report_path: str, evidence: str, duration: str):
         _more(SUMMARY_ROWS, len(s["eol_items"]), "End of Life")
 
     console.print()
+    ai = s.get("ai")
+    ai_line = (("\n", ("AI        ", "bold"),
+                f"{ai.get('model', '?')} · {ai.get('requests', 0):,} requests ({ai.get('cached', 0):,} cached) · "
+                f"{ai.get('input_tokens', 0):,} input / {ai.get('output_tokens', 0):,} output tokens")
+               if ai else ())
     console.print(Panel(Text.assemble(("Report    ", "bold"), (report_path, "cyan"), "\n",
                                       ("Evidence  ", "bold"), (evidence, "grey62"), "\n",
-                                      ("Duration  ", "bold"), duration),
+                                      ("Duration  ", "bold"), duration, *ai_line),
                         border_style="green" if s["status_ok"] else "yellow", box=box.ROUNDED, expand=False))
     snapshot("results")
 
@@ -664,6 +669,7 @@ def _run(args, repos, notes, argv, started, run_id, sel_name, evidence) -> int:
         "incomplete": False, "ai": ai_info,
     }
     summary = summarize(merged, coverage, eol, args.selected, run_problems, upgrades)
+    summary["ai"] = ai_info
     meta["incomplete"] = not summary["status_ok"]
     with stage_ctx(f"writing Excel report ({len(merged):,} findings)", "report"):
         report.Report(report_path).build(meta, merged, all_components, eol, all_binaries, coverage, upgrades)

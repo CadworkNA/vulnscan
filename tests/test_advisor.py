@@ -575,16 +575,17 @@ def _collector(offline=False):
     return evidence.Collector(evidence.Fetcher(offline=offline))
 
 
-def _release_pages(web, pages):
+def _release_pages(web, pages, repo="o/r"):
     for n, page in enumerate(pages, 1):
-        web.pages[GH + f"o/r/releases?per_page=100&page={n}"] = page if isinstance(page, (int, tuple)) \
+        web.pages[GH + f"{repo}/releases?per_page=100&page={n}"] = page if isinstance(page, (int, tuple)) \
             else json.dumps(page).encode()
 
 
 def test_github_releases_stopped_early_are_partial(web, monkeypatch):
-    full = [{"tag_name": "v3.0.14", "body": "target"}, {"tag_name": "v1.1.1w", "body": "older line"}]
-    full += [{"tag_name": f"v3.0.{i}", "body": "x"} for i in range(13, -1, -1)] + [
-        {"tag_name": f"v2.{i}.0", "body": "y"} for i in range(84)]
+    full = [{"tag_name": "v3.0.14", "body": "the target release notes"},
+            {"tag_name": "v1.1.1w", "body": "a release of the older line"}]
+    full += [{"tag_name": f"v3.0.{i}", "body": "fixes in this release"} for i in range(13, -1, -1)] + [
+        {"tag_name": f"v2.{i}.0", "body": "fixes in this release"} for i in range(84)]
     _release_pages(web, [full, (403, {"X-RateLimit-Remaining": "0"})])
     ev = evidence.Evidence()
     assert _collector()._github_releases(ev, "o/r", "3.0.5", "3.0.14")
@@ -593,11 +594,93 @@ def test_github_releases_stopped_early_are_partial(web, monkeypatch):
     ev = evidence.Evidence()
     _collector()._github_releases(ev, "o/r", "3.0.5", "3.0.14")
     assert not ev.sources[0].complete  # page cap reached with releases still in range
-    monkeypatch.setattr(evidence, "MAX_RELEASE_BODY", 3)
-    _release_pages(web, [[{"tag_name": "v2.0.0", "body": "long body"}, {"tag_name": "v1.0.0", "body": "a"}]])
+    monkeypatch.setattr(evidence, "MAX_RELEASE_BODY", 20)
+    _release_pages(web, [[{"tag_name": "v2.0.0", "body": "a long body that will be cut here"},
+                          {"tag_name": "v1.0.0", "body": "a"}]], "o/cut")
     ev = evidence.Evidence()
-    _collector()._github_releases(ev, "o/r", "1.0.0", "2.0.0")
+    _collector()._github_releases(ev, "o/cut", "1.0.0", "2.0.0")
     assert not ev.sources[0].complete  # a cut release body
+
+
+def test_releases_without_real_notes_are_not_evidence(web):
+    # ImageMagick style: the body only repeats the version; it must never read as 'nothing changed'
+    _release_pages(web, [[{"tag_name": "7.1.2-34", "body": "7.1.2-34"}, {"tag_name": "7.1.2-33", "body": ""},
+                          {"tag_name": "7.1.2-21", "body": "7.1.2-21"}]])
+    ev = evidence.Evidence()
+    assert not _collector()._github_releases(ev, "o/r", "7.1.2-21", "7.1.2-34") and ev.coverage == "none"
+    _release_pages(web, [[{"tag_name": "v2.1.0", "body": "Removed the legacy foo() API"},
+                          {"tag_name": "v2.0.0", "body": "v2.0.0"}, {"tag_name": "v1.0.0", "body": "x"}]], "o/gap")
+    ev = evidence.Evidence()
+    assert _collector()._github_releases(ev, "o/gap", "1.0.0", "2.1.0")
+    assert not ev.sources[0].complete  # 2.0.0 has no notes: what changed there is unknown
+
+
+def test_changelogs_are_read_at_the_target_release():
+    spec = evidence.NATIVE["openssl"]
+    assert evidence.changelog_refs(spec, "3.0.23") == [
+        "openssl-3.0.23", "OpenSSL_3_0_23", "openssl-3.0", "OpenSSL_3_0_23-stable", "HEAD"]
+    assert evidence.changelog_refs(evidence.NATIVE["freetype"], "2.13.2") == ["VER-2-13-2", "HEAD"]
+    assert evidence.changelog_refs(evidence.NATIVE["sqlite"], "3.54.0") == ["HEAD"]
+
+
+def test_patch_releases_of_maintained_lines_come_from_the_release_branch(web):
+    # main lists only 3.0.0 for the 3.0 line; the patch releases are in the openssl-3.0 branch
+    base = "https://raw.githubusercontent.com/openssl/openssl/"
+    web.pages[base + "HEAD/CHANGES.md"] = b"### Changes between 3.0.0 and 3.1.0 [x]\n* a\n"
+    web.pages[base + "openssl-3.0/CHANGES.md"] = (
+        b"### Changes between 3.0.22 and 3.0.23 [x]\n* Fixed foo\n### Changes between 3.0.12 and 3.0.13 [x]\n"
+        b"* Fixed bar\n### Changes between 3.0.11 and 3.0.12 [x]\n* installed\n")
+    ev = _collector().native("openssl", "3.0.12", "3.0.23")
+    assert ev.coverage == "complete" and ev.sources[0].title == "openssl/openssl: CHANGES.md (openssl-3.0)"
+    assert "Fixed foo" in ev.sources[0].text and "installed" not in ev.sources[0].text
+
+
+def test_old_openssl_headings_with_one_leading_space():
+    doc = " Changes between 1.1.1v and 1.1.1w [11 Sep 2023]\n\n  *) Fix POLY1305\n\n" \
+          " Changes between 1.1.1u and 1.1.1v [1 Aug 2023]\n\n  *) Fix DH\n"
+    text, complete = evidence.slice_changelog(doc, "1.1.1v", "1.1.1w")
+    assert "POLY1305" in text and "Fix DH" not in text and complete
+
+
+@pytest.mark.parametrize(("name", "key"), [("SQLite3", "sqlite"), ("Qt5", "qt"), ("qt6", "qt"), ("expat", "libexpat"),
+                                           ("openssl", "openssl"), ("chrome", None), ("ImageMagick", None)])
+def test_native_aliases(name, key):
+    found = evidence.native_spec(name)
+    assert (found[0] if found else None) == key
+
+
+def test_gitlab_per_version_release_notes(web):
+    tree = "https://gitlab.com/api/v4/projects/libtiff%2Flibtiff/repository/tree?path=doc%2Freleases&per_page=100"
+    web.pages[tree] = json.dumps([{"name": f"v{v}.rst"} for v in ("4.2.0", "4.3.0", "4.7.2", "4.7.3")]
+                                 + [{"name": "index.rst"}]).encode()
+    raw = "https://gitlab.com/libtiff/libtiff/-/raw/HEAD/doc/releases/"
+    web.pages[raw + "v4.3.0.rst"] = b"TIFFOpen changed"
+    web.pages[raw + "v4.7.2.rst"] = b"Removed tiff2ps"
+    ev = _collector().native("libtiff", "4.2.0", "4.7.2")
+    assert ev.coverage == "complete" and ev.repo == "libtiff/libtiff"
+    text = ev.sources[0].text
+    assert text.index("4.7.2") < text.index("4.3.0") and "TIFFOpen" in text and "4.7.3" not in text
+
+
+def test_usage_matches_names_and_versions_across_engines():
+    bins = [{"repo": "r", "path": "bin/Qt5Core.dll", "file_version": "5.11.0.0",
+             "components": [{"product": "qt", "version": "5.11.0", "rule": "Qt framework (Core module)"}]},
+            {"repo": "r", "path": "bin/app.exe", "imports": {"qt5core.dll": ["?toUtf8@QString@@QEBA?AVQByteArray@@XZ"]}}]
+    use = evidence.usage(bins, "Qt5", "5.11.0.0", ["r"])  # as the packages engine names it
+    assert use["dlls"] == ["qt5core.dll"] and use["functions"] == {"QString::toUtf8"}
+
+
+def test_token_budget_stops_model_calls(web, monkeypatch):
+    web.pages[RAW + "CHANGES.md"] = CHANGES_MD.encode()
+    monkeypatch.setenv("VULNSCAN_AI_MAX_TOKENS", "1")
+    monkeypatch.setenv("VULNSCAN_AI_CONCURRENCY", "1")  # with more, calls already waiting may overshoot once
+    rows, model = _row() + _row(), Model()
+    rows[1]["version"] = "1.1.1j"
+    advisor.advise(rows, BINARIES, [], offline=False, model=FunctionModel(model, model_name="fake"))
+    # the first call may run (the budget is checked before each call); after it, nothing more is sent
+    assert len(model.prompts) == 1
+    stopped = [r for r in rows if "token budget" in r["advice"]["summary"] + " ".join(r["advice"]["problems"])]
+    assert stopped and all(r["advice"]["verdict"] != "unlikely" for r in rows)
 
 
 def test_duplicate_sources_are_kept_once():
@@ -608,11 +691,14 @@ def test_duplicate_sources_are_kept_once():
 
 
 def test_github_releases_across_interleaved_lines(web):
-    page1 = [{"tag_name": "v3.0.12", "body": "3.0.12 notes"}, {"tag_name": "v1.1.1w", "body": "backport"},
-             {"tag_name": "v3.1.0-beta1", "prerelease": True, "body": "beta"}, {"tag_name": "v3.0.11", "body": ""},
+    page1 = [{"tag_name": "v3.0.12", "body": "3.0.12 notes: fixed the parser"},
+             {"tag_name": "v1.1.1w", "body": "backport of the parser fix"},
+             {"tag_name": "v3.1.0-beta1", "prerelease": True, "body": "beta"},
+             {"tag_name": "v3.0.11", "body": "Fixed a crash on exit"},
              {"tag_name": "nightly", "body": "x"}, {"tag_name": "v4.0.0", "draft": True, "body": "draft"}]
-    page1 += [{"tag_name": f"v2.{i}.0", "body": "old line"} for i in range(94)]
-    page2 = [{"tag_name": "v3.0.0", "body": "3.0.0 BREAKING"}, {"tag_name": "v1.1.1k", "body": "installed"}]
+    page1 += [{"tag_name": f"v2.{i}.0", "body": "a release of the 2.x line"} for i in range(94)]
+    page2 = [{"tag_name": "v3.0.0", "body": "3.0.0 BREAKING: removed the old API"},
+             {"tag_name": "v1.1.1k", "body": "installed"}]
     web.pages[GH + "o/r/releases?per_page=100&page=1"] = json.dumps(page1).encode()
     web.pages[GH + "o/r/releases?per_page=100&page=2"] = json.dumps(page2).encode()
     ev = evidence.Evidence()
