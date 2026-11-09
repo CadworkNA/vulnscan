@@ -440,9 +440,13 @@ def advise(rows: list[dict], binaries: list[dict], components: list[dict], offli
         else:
             r["advice"] = _not_analysed("Not analysed: the installed version is already at or above every reported "
                                         "fix (verify the match)")
-    for r in todo[limit:]:
+    # the limit bounds the cost, so it only counts upgrades that can have release notes: one without any known
+    # source (Chrome, a proprietary SDK) is settled without a model request and does not take a slot
+    sourced = [r for r in todo if r["ecosystem"] in REGISTRIES or evidence.native_spec(r["component"])]
+    for r in sourced[limit:]:
         r["advice"] = _not_analysed(f"Not analysed: limit of {limit} upgrades per run (VULNSCAN_AI_MAX_UPGRADES)")
-    todo = todo[:limit]
+    skipped = {id(r) for r in sourced[limit:]}
+    todo = [r for r in todo if id(r) not in skipped]
     info = {"model": model if isinstance(model, str) else getattr(model, "model_name", "custom"),
             "prompt_version": PROMPT_VERSION, "upgrades": len(todo)}
     if not todo:

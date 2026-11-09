@@ -535,12 +535,15 @@ def _low(component, version, fixed):
 
 def test_advise_limits_and_skips(web, monkeypatch):
     monkeypatch.setenv("VULNSCAN_AI_MAX_UPGRADES", "1")
-    rows = _row() + upgrade.plan([_low("zlib", "1.2.11", "1.2.12"), _low("nofix", "1.0", "")])
+    # chrome comes first (higher priority) but has no release-note source: it must not take the only slot
+    chrome = upgrade.plan([dict(_low("chrome", "120.0.1", "121.0.1"), priority="P1")])
+    rows = chrome + _row() + upgrade.plan([_low("zlib", "1.2.11", "1.2.12"), _low("nofix", "1.0", "")])
     by = {r["component"]: r for r in rows}
     advisor.advise(rows, [], [], offline=False, model=FunctionModel(Model(), model_name="fake"))
     assert "limit of 1" in by["zlib"]["advice"]["summary"]
     assert "no fixed version" in by["nofix"]["advice"]["summary"]
-    assert by["openssl"]["advice"]["verdict"] in advisor.VERDICTS
+    assert by["openssl"]["advice"]["verdict"] in advisor.VERDICTS and "limit" not in by["openssl"]["advice"]["summary"]
+    assert "no known release-note source" in " ".join(by["chrome"]["advice"]["problems"])
 
 
 def test_package_evidence_from_pypi_and_github(web):
