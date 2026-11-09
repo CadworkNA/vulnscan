@@ -13,9 +13,11 @@
 `vulnscan` finds known vulnerabilities in the files we ship to customers. It checks out SVN repositories
 (or scans any local folder), unpacks every installer and archive, identifies every third-party component
 (including libraries compiled into first-party DLLs) and matches them against CVE, GitHub and OSV advisories,
-the CISA **Known Exploited Vulnerabilities** catalog, EPSS exploit scores and end-of-life data. The result is
-an Excel report, optionally a CycloneDX SBOM and an email. Everything runs in one container, so it works the
-same on Windows (Podman/Docker Desktop), Linux and CI.
+the CISA **Known Exploited Vulnerabilities** catalog, EPSS exploit scores and end-of-life data. For every
+vulnerable component it works out the lowest version that fixes all of its vulnerabilities and, optionally,
+**what that upgrade breaks** (AI-assisted, from the release notes and the functions our binaries actually call).
+The result is an Excel report, optionally a CycloneDX SBOM and an email. Everything runs in one container, so it
+works the same on Windows (Podman/Docker Desktop), Linux and CI.
 
 It is built to **fail closed**: a run is only reported as complete when every repository was scanned by every
 engine, the vulnerability data was current and each engine passed a self-test. Anything else is reported,
@@ -27,6 +29,7 @@ loudly, as incomplete, never as an all-clear.
 - [What it reports](#what-it-reports)
 - [How it works](#how-it-works)
 - [Usage](#usage)
+- [Upgrade advice (AI, optional)](#upgrade-advice-ai-optional)
 - [Scheduled scans and email](#scheduled-scans-and-email)
 - [Configuration](#configuration)
 - [Trust: fail-closed behaviour, exit codes, verification](#trust-fail-closed-behaviour-exit-codes-verification)
@@ -78,6 +81,8 @@ finding can be traced back to the tool and database that produced it.
 | **Summary** | Totals, priority/KEV/severity tiles, per-repository breakdown and chart, highest-risk components, anything that needs attention, method and exact toolchain/database versions |
 | **Findings** | One row per *(repository, file, vulnerability)*: priority, severity, CVSS, CISA KEV (date added, due date, ransomware use), EPSS, component, installed and fixed version, description, CWE, detection engine(s), confidence, evidence, references |
 | **Vulnerabilities** | One row per distinct vulnerability and component, with the number of affected files |
+| **Upgrades** | One row per vulnerable component: the lowest version that fixes **all** of its vulnerabilities (staying on the installed release line when a fix exists there), the size of the step (patch/minor/major), vulnerabilities without a fix, matches where the installed version is already at or above every reported fix (*verify the match*), and whether the target is itself end of life (with a supported alternative). With `--ai`, also the [upgrade advice](#upgrade-advice-ai-optional) |
+| **Upgrade changes** | With `--ai`: every documented change between the installed and the target version, with its quote from the release notes and the source |
 | **Components** | Every identified third-party component, how it was identified, its exposure and end-of-life status |
 | **End of Life** | Unsupported runtimes and libraries (endoflife.date; Microsoft Visual C++ runtimes) |
 | **Binaries** | Every executable shipped: vendor, product, versions, signature, SHA-256, identified libraries. Third-party binaries that could not be matched to a known component are flagged **REVIEW** |
@@ -144,6 +149,7 @@ vulnscan [--all | --<repo> ... | --repo NAME ... | --path DIR ...] [options]
 | `--path DIR` | scan a local folder instead of SVN, e.g. a build output (relative to `/work`, or mount it) |
 | `--sbom` | also write a CycloneDX SBOM per repository |
 | `--email` | email the summary and the report ([SMTP settings](#configuration)) |
+| `--ai` | [upgrade advice](#upgrade-advice-ai-optional): what changes between the installed and the fixed version (needs `VULNSCAN_AI_MODEL`; sends public component names and versions out, see there) |
 | `--schedule CRON` | keep running and scan on a cron schedule, e.g. `"0 2 * * 1"` ([below](#scheduled-scans-and-email)) |
 | `--scheduled` | same, with the schedule from `VULNSCAN_SCHEDULE` (what the Compose service uses) |
 | `--fail-on LEVEL` | exit 1 if findings at or above `critical`, `high`, `medium`, `low`, `kev`, `p1` or `p2` exist (CI gating) |
@@ -161,6 +167,49 @@ docker run --rm -it -v vulnscan-cache:/cache -v "$PWD:/work" ghcr.io/cadworkna/v
 ```
 
 <p align="center"><img src="docs/images/terminal-scan.png" alt="Live progress during a scan" width="820"></p>
+
+## Upgrade advice (AI, optional)
+
+Knowing that OpenSSL 1.1.1k must become 3.0.12 is half the answer; the other half is what that upgrade breaks.
+With `--ai`, vulnscan collects the evidence for every upgrade on the **Upgrades** sheet and has a language model
+read it:
+
+| Evidence | From | Decided by |
+|---|---|---|
+| **Release notes**, changelogs and migration guides between the installed and the target version | Package registries (PyPI, npm, NuGet, Maven Central, crates.io, Go proxy, RubyGems), GitHub/GitLab, and curated sources for native libraries (OpenSSL, curl, zlib, Qt, Python, Node.js, SQLite, …) | The model extracts each change, **quoting** the notes; a change whose quote is not found word for word in the notes is dropped |
+| **Runtime requirements** of both versions: Python (and prebuilt Windows wheels), Node.js, .NET target frameworks, Rust, Go, Ruby | Registry metadata, checked against the runtimes shipped in the same repository | vulnscan |
+| **Our use** of the component: the functions our binaries import from its DLLs | PE import tables of the scanned files | vulnscan, locally |
+
+Each upgrade then gets:
+
+- **Breaking changes**: *likely* (a documented incompatible/removed/ABI change, or a requirement our shipped
+  runtime does not meet), *possible* (other API or behaviour changes, or a major step), *unlikely* (the notes cover
+  the whole range and document nothing incompatible) or *unknown* (no or incomplete notes). The verdict is computed
+  from the verified changes, never chosen by the model, and missing evidence never reads as *unlikely*.
+- **Affects our binaries**: *yes: SSL_CTX_new, …* when a documented change names a function our binaries import
+  from that DLL. Statically linked copies have no imports, so they show no answer here.
+- A short summary and migration steps (AI-generated), the requirement changes and the sources used.
+
+The advice is **advisory**: it never changes whether a run is complete or the exit code, and a failure (provider
+down, no release notes, rate limit) shows as *not analysed* or *unknown*, never as safe.
+
+**What leaves the machine** (only with `--ai`): the names and versions of third-party components that matched a
+public advisory, sent to the package registries, GitHub/GitLab and the model provider, and the public release notes
+sent to the model provider. Never a repository name, path or file name, and not which functions our binaries
+call (that comparison runs locally). Requests only go to an allowlist of hosts, also across redirects.
+
+**Configuration.** The model is any [Pydantic AI](https://ai.pydantic.dev/models/) model string; the image
+includes the Anthropic provider:
+
+```ini
+VULNSCAN_AI_MODEL=anthropic:claude-sonnet-5-5
+ANTHROPIC_API_KEY=...            # or ANTHROPIC_API_KEY_FILE=/run/secrets/anthropic
+GITHUB_TOKEN=...                 # optional, no scopes needed: 5,000 GitHub requests an hour instead of 60
+```
+
+Release notes and model answers are cached in the cache volume (`/cache/db/advisor`), so repeated scans cost
+almost nothing and `--offline` reuses them. `VULNSCAN_AI_MAX_UPGRADES` (default 100, highest priority first)
+bounds the cost of one run; the model, the number of requests and tokens are recorded on the Summary sheet.
 
 ## Scheduled scans and email
 
@@ -195,6 +244,9 @@ read from a file with the `_FILE` suffix, e.g. `SMTP_PASSWORD_FILE=/run/secrets/
 | `VULNSCAN_SCHEDULE` | cron schedule used by `--scheduled` (ignored by normal runs) |
 | `VULNSCAN_ACCEPTED_GAPS` | accepted coverage gaps as JSON, instead of `vulnscan-accepted-gaps.json` ([below](#accepted-coverage-gaps)) |
 | `VULNSCAN_UPDATE_CHECK` | `0` to skip the start-up check for a newer vulnscan release (one GitHub request a day, skipped with `--offline`; it only warns, never changes the result) |
+| `VULNSCAN_AI_MODEL` | `--ai` only: Pydantic AI model string, e.g. `anthropic:claude-sonnet-5-5`, plus the provider's key (`ANTHROPIC_API_KEY`) |
+| `GITHUB_TOKEN` | `--ai` only, optional: GitHub token for release notes (higher rate limit; sent to `api.github.com` only) |
+| `VULNSCAN_AI_MAX_UPGRADES`, `VULNSCAN_AI_CONCURRENCY` | `--ai` only: upgrades analysed per run (default 100) and parallel model requests (default 4) |
 | `TZ` | time zone for schedules and timestamps, e.g. `America/Toronto` |
 | `VULNSCAN_TAG`, `VULNSCAN_REPORTS`, `VULNSCAN_ARGS` | Compose only: image tag, report folder on the host, arguments of the scheduled service |
 
@@ -221,6 +273,9 @@ Many scanners report "0 vulnerabilities" when they actually scanned nothing. vul
 | 2 | invalid arguments or configuration |
 | 3 | **incomplete or failed**, not an all-clear |
 | 4 | complete, but the email could not be sent |
+
+The [upgrade advice](#upgrade-advice-ai-optional) never affects completeness or the exit code: it is advisory,
+and what it could not analyse is reported as such.
 
 **Verifying the image.** Images published by CI carry Sigstore-signed build provenance and an SBOM attestation; each
 [release](https://github.com/CadworkNA/vulnscan/releases) lists its image digest and the image SBOM:
@@ -308,6 +363,9 @@ vulnscan/
   binsig.py    embedded version signatures (statically linked libraries)
   scanners.py  engine runners, strict output parsing, self-test, database health
   enrich.py    merge, KEV/EPSS/CVSS enrichment, priority, end of life
+  upgrade.py   upgrade paths: lowest version fixing every vulnerability, step size
+  evidence.py  --ai: release notes, requirements, our imports (allowlisted, cached fetching)
+  advisor.py   --ai: Pydantic AI extraction with quote verification, computed verdict
   report.py    Excel report        sbom.py   CycloneDX SBOM
   notify.py    email               schedule.py  cron
 tests/         unit, contract (recorded scanner output) and detection tests
@@ -344,7 +402,10 @@ docker run --rm -v "$PWD:/src:ro" -e PYTHONPATH=/src --entrypoint sh vulnscan -c
 
 **Updating a scanner:** change its version and SHA-256 in the `Containerfile` (from the release's checksum file),
 run the tests, and refresh the fixtures if the output format changed. **Adding an identification rule:** extend
-`pe.py` (version resources) or `binsig.py` (embedded strings, NVD vendor/product names) and add a test case.
+`pe.py` (version resources) or `binsig.py` (embedded strings, NVD vendor/product names) and add a test case. **Adding a release-note source**
+for a native library: an entry in `evidence.NATIVE` (keyed by the NVD product name), checked against the real
+changelog, and a test case. Tests never call a model or the network: they use Pydantic AI's `FunctionModel` and
+a fake web.
 
 **README images** are generated from a demo scan of public artifacts, never from real scan data.
 

@@ -153,6 +153,30 @@ def render_html(s: dict, meta: dict, attached: bool, report_name: str) -> str:
                  + (f'<p style="{FONT}font-size:12px;color:#6B7280">… and {len(s["kev_list"]) - 15} more in the report.</p>'
                     if len(s["kev_list"]) > 15 else "")) if s["kev_list"] else ""
 
+    upgrades = s.get("upgrades") or []
+    advised = bool((s.get("upgrade_counts") or {}).get("advised"))
+    up_rows = "".join(
+        f'<tr style="border-bottom:1px solid #F3F4F6">'
+        f'<td style="padding:7px 10px;{FONT}font-size:13px;color:#111827;font-weight:600">{_e(u["component"])}</td>'
+        f'<td style="padding:7px 10px;{FONT}font-size:12px;color:#6B7280">{_e(u["version"])}</td>'
+        f'<td style="padding:7px 10px;{FONT}font-size:13px;font-weight:600">{_e(u["target"] or u["label"])}</td>'
+        f'<td style="padding:7px 10px;{FONT}font-size:12px;'
+        f'color:{"#991B1B" if u["step"] == "major" else "#374151"}">{_e(u["step"])}</td>'
+        f'<td align="right" style="padding:7px 10px;{FONT}font-size:13px">{u["vulns"]:,}</td>'
+        + (f'<td style="padding:7px 10px;{FONT}font-size:12px;'
+           f'color:{"#991B1B" if u["verdict"] == "likely" else "#374151"}">{_e(u["verdict"])}</td>'
+           if advised else "")
+        + "</tr>" for u in upgrades[:10])
+    up_note = ((f"… and {len(upgrades) - 10} more. " if len(upgrades) > 10 else "")
+               + ("Breaking-change advice is AI-assisted: verify it on the Upgrades sheet." if advised else ""))
+    up_block = (f'<h3 style="{FONT}font-size:15px;color:#111827;margin:26px 0 8px">Upgrade paths</h3>'
+                f'<table width="100%" cellpadding="0" cellspacing="0" '
+                f'style="border-collapse:collapse;border:1px solid #E5E7EB">'
+                f'<tr>{_th("Component")}{_th("Installed")}{_th("Upgrade to")}{_th("Step")}{_th("Vulns", "right")}'
+                + (_th("Breaking (AI)") if advised else "") + f"</tr>{up_rows}</table>"
+                + (f'<p style="{FONT}font-size:12px;color:#6B7280">{_e(up_note)}</p>' if up_note else "")
+                ) if upgrades else ""
+
     eol_block = ""
     if s["eol_list"]:
         eol_block = (f'<h3 style="{FONT}font-size:15px;color:#111827;margin:26px 0 8px">End-of-life components</h3>'
@@ -191,6 +215,7 @@ def render_html(s: dict, meta: dict, attached: bool, report_name: str) -> str:
     {comp_rows}
   </table>''' if comp_rows else ""}
   {kev_block}
+  {up_block}
   {eol_block}
   <p style="{FONT}font-size:13px;color:#374151;margin:26px 0 0">{attach_note} Start with the <b>Summary</b> sheet,
   then filter <b>Findings</b> by <b>Priority</b> (P1 = actively exploited or critical with high exploit likelihood).</p>
@@ -213,6 +238,11 @@ def render_text(s: dict, meta: dict, attached: bool, report_name: str) -> str:
     if s["kev_list"]:
         lines += ["", "Actively exploited (CISA KEV):"]
         lines += [f"  {k['id']}  {k['component']} {k['version']}" for k in s["kev_list"][:15]]
+    if s.get("upgrades"):
+        lines += ["", "Upgrade paths:"]
+        lines += [f"  {u['component']} {u['version']} -> {u['target'] or u['label']} ({u['step'] or '-'})"
+                  + (f", breaking: {u['verdict']} (AI-assisted)" if u.get("verdict") else "")
+                  for u in s["upgrades"][:10]]
     lines += ["", f"Report: {report_name} " + ("(attached)" if attached else f"(in {meta['evidence_dir']})")]
     return "\n".join(lines)
 

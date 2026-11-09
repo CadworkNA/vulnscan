@@ -5,7 +5,7 @@ description = "Vulnerability scanner for shipped files (SVN repositories or loca
 license = "MIT"
 requires-python = ">=3.12"
 # Runtime dependencies are installed in the container (see Containerfile).
-dependencies = ["pefile", "xlsxwriter", "rich", "cvss"]
+dependencies = ["pefile", "xlsxwriter", "rich", "cvss", "packaging", "pydantic-ai-slim[anthropic]"]
 
 [dependency-groups]
 dev = ["pytest", "pytest-cov", "openpyxl", "ruff", "cyclonedx-python-lib[json-validation]"]

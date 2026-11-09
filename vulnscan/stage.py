@@ -229,9 +229,9 @@ def _sha256(path: str) -> str:
 
 def _analyze_job(args):
     """Analyse one binary: PE version resource (if PE) + embedded version signatures."""
-    abs_path, disp, size, kind = args
+    abs_path, disp, size, kind, *rest = args
     if kind == "pe":
-        info = pe_mod.read_pe(abs_path, disp, size)
+        info = pe_mod.read_pe(abs_path, disp, size, imports=bool(rest and rest[0]))
     else:
         info = pe_mod.PEInfo(path=disp, size=size, machine=kind)
     have = {(c.vendor, c.product, c.version) for c in info.components}
@@ -371,7 +371,7 @@ def _extract_all(root: Path, files_dir: Path, res: StageResult, tag: dict, worke
 
 
 def build(repo_name: str, checkout: Path, *, extract: bool = True, hash_files: bool = True,
-          jobs: int = os.cpu_count() or 4) -> StageResult:
+          jobs: int = os.cpu_count() or 4, imports: bool = False) -> StageResult:
     tag = {"stage": f"stage:{repo_name}"}
     root = STAGE / repo_name
     if root.exists():
@@ -421,7 +421,7 @@ def build(repo_name: str, checkout: Path, *, extract: bool = True, hash_files: b
         else:
             f.kind = "other"
         if f.kind in ("pe", "elf", "static-lib", "mach-o"):
-            bin_jobs.append((f.abs, f.path, f.size, f.kind))
+            bin_jobs.append((f.abs, f.path, f.size, f.kind, imports))
         if f.kind == "pe" and os.path.splitext(f.path)[1].lower() not in PE_EXT:
             log.debug("PE binary with non-standard extension: %s", f.path, extra=tag)
 

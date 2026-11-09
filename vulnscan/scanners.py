@@ -417,9 +417,7 @@ def parse_osv(raw: Path, mapper: PathMapper) -> list[dict]:
                 sev = norm_sev((v.get("database_specific") or {}).get("severity")) if v.get("database_specific") else "UNKNOWN"
                 if sev == "UNKNOWN":
                     sev = sev_from_score(score)
-                fixed = sorted({e.get("fixed") for a in v.get("affected", []) or []
-                                for r in a.get("ranges", []) or [] for e in r.get("events", []) or []
-                                if e.get("fixed")})
+                fixed = osv_fixed(v, p)
                 locs = [mapper(loc) for loc in _osv_locations(pkg)] or [mapper(src_path)]
                 for loc in locs:
                     out.append(finding(
@@ -427,11 +425,30 @@ def parse_osv(raw: Path, mapper: PathMapper) -> list[dict]:
                         comp_type=p.get("ecosystem", ""), vuln_id=cve, aliases=ids - {cve, ""},
                         severity=sev, cvss_score=score, title=v.get("summary", ""),
                         description=v.get("details", "") or v.get("summary", ""),
-                        published=(v.get("published") or "")[:10], fixed=", ".join(fixed[:5]),
+                        published=(v.get("published") or "")[:10], fixed=", ".join(fixed),
                         refs=[r.get("url") for r in v.get("references", []) or [] if r.get("url")],
                         sources={"osv-scanner"}, evidence=f"OSV {v.get('id', '')} ({p.get('ecosystem', '')})",
                         purl=p.get("purl", "")))
     return out
+
+
+def osv_fixed(vuln: dict, pkg: dict) -> list[str]:
+    """Fixed versions of this package in an OSV record, in version order. Other packages of the same record and
+    GIT ranges (commit ids) are left out: the upgrade plan picks its target from these."""
+    from .upgrade import vkey  # upgrade imports this module
+
+    name, eco = str(pkg.get("name", "")).lower(), str(pkg.get("ecosystem", "")).lower()
+    out = set()
+    for a in vuln.get("affected", []) or []:
+        ap = a.get("package") or {}
+        if ap and (str(ap.get("name", "")).lower() != name
+                   or str(ap.get("ecosystem", "")).split(":")[0].lower() != eco.split(":")[0]):
+            continue
+        for r in a.get("ranges", []) or []:
+            if str(r.get("type", "")).upper() == "GIT":
+                continue
+            out |= {e["fixed"] for e in r.get("events", []) or [] if isinstance(e.get("fixed"), str)}
+    return sorted(out, key=lambda x: (vkey(x) is None, vkey(x) or (), x))[:50]
 
 
 def _osv_locations(pkg: dict) -> list[str]:

@@ -66,7 +66,8 @@ RUN set -eux; cd /tmp; \
 # --- Python orchestrator ------------------------------------------------------
 COPY --from=uv /uv /usr/local/bin/uv
 RUN uv venv --python /usr/bin/python3 /opt/venv \
- && VIRTUAL_ENV=/opt/venv uv pip install --exclude-newer "${PY_DEPS_DATE}" pefile xlsxwriter rich cvss
+ && VIRTUAL_ENV=/opt/venv uv pip install --exclude-newer "${PY_DEPS_DATE}" pefile xlsxwriter rich cvss \
+      packaging "pydantic-ai-slim[anthropic]"
 ENV PATH="/opt/venv/bin:${PATH}"
 
 # Unprivileged user the scanner switches to at start-up (see util.drop_privileges):
@@ -85,7 +86,8 @@ ENV VULNSCAN_CACHE=/cache \
     SYFT_CHECK_FOR_APP_UPDATE=false \
     OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY=/cache/db/osv \
     HOME=/cache/home \
-    TERM=xterm-256color
+    TERM=xterm-256color \
+    PYDANTIC_AI_NO_BANNER=1
 
 VOLUME ["/cache"]
 WORKDIR /work

@@ -172,7 +172,7 @@ def run_streamed(cmd: list[str], tag: str, *, cwd: str | Path | None = None,
     silent for a while, so a long-running scan visibly stays alive.
     """
     log.debug("$ %s", " ".join(cmd), extra={"stage": tag})
-    full_env = os.environ.copy()
+    full_env = subprocess_env()
     if env:
         full_env.update(env)
     proc = subprocess.Popen(cmd, cwd=cwd, env=full_env, text=True, errors="replace",
@@ -273,9 +273,16 @@ def get_secret(name: str, default: str = "") -> str:
     return default
 
 
+def subprocess_env() -> dict:
+    """Environment for external tools: without model provider keys or the GitHub token, which only the upgrade
+    advice uses and which must only reach their own service (see SECURITY.md)."""
+    return {k: v for k, v in os.environ.items()
+            if not (k.endswith(("_API_KEY", "_API_KEY_FILE")) or k in ("GITHUB_TOKEN", "GITHUB_TOKEN_FILE"))}
+
+
 def capture(cmd: list[str]) -> str:
     try:
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=120).stdout.strip()
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=120, env=subprocess_env()).stdout.strip()
     except Exception as exc:  # noqa: BLE001
         return f"unavailable ({exc})"
 

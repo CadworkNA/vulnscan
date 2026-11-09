@@ -47,8 +47,35 @@ def _version_info(strings: dict[str, str], version: tuple[int, int, int, int]) -
     return _block("VS_VERSION_INFO", fixed, children=[sfi, vfi])
 
 
-def build_pe(strings: dict[str, str], version: tuple[int, int, int, int], banner: bytes = b"") -> bytes:
-    """A PE32+ DLL with one .rsrc section holding an RT_VERSION resource, followed by `banner` bytes."""
+def _import_table(base: int, imports: dict[str, list[str | int]]) -> tuple[bytes, int]:
+    """Import directory at RVA `base`: descriptors, lookup tables (PE32+), hint/name entries, DLL names.
+    Functions given as int are imported by ordinal. Returns (bytes, size of the descriptor array)."""
+    desc_size = 20 * (len(imports) + 1)
+    data, descs = bytearray(), []
+    for dll, funcs in imports.items():
+        names = bytearray()
+        names_at = desc_size + len(data) + 8 * (len(funcs) + 1)
+        ilt = bytearray()
+        for f in funcs:
+            if isinstance(f, int):
+                ilt += struct.pack("<Q", (1 << 63) | f)
+            else:
+                ilt += struct.pack("<Q", base + names_at + len(names))
+                names += struct.pack("<H", 0) + f.encode() + b"\0"
+                names += b"\0" * (len(names) % 2)
+        ilt += struct.pack("<Q", 0)
+        ilt_rva = base + desc_size + len(data)
+        data += ilt + names
+        name_rva = base + desc_size + len(data)
+        data += dll.encode() + b"\0"
+        data += b"\0" * (-len(data) % 8)
+        descs.append(struct.pack("<IIIII", ilt_rva, 0, 0, name_rva, ilt_rva))
+    return b"".join(descs) + b"\0" * 20 + bytes(data), desc_size
+
+
+def build_pe(strings: dict[str, str], version: tuple[int, int, int, int], banner: bytes = b"",
+             imports: dict[str, list[str | int]] | None = None) -> bytes:
+    """A PE32+ DLL with one section holding an RT_VERSION resource, `banner` bytes and an optional import table."""
     rva = 0x1000
     vi = _version_info(strings, version)
     rsrc = b"".join([
@@ -58,10 +85,18 @@ def build_pe(strings: dict[str, str], version: tuple[int, int, int, int], banner
         struct.pack("<IIII", rva + 88, len(vi), 0, 0),                                           # data entry
         vi,
     ]) + banner
+    rsrc_len = len(rsrc) - len(banner)
+    imp_dir = (0, 0)
+    if imports:
+        rsrc += b"\0" * (-len(rsrc) % 8)
+        table, desc_size = _import_table(rva + len(rsrc), imports)
+        imp_dir = (rva + len(rsrc), desc_size)
+        rsrc += table
     raw = rsrc + b"\0" * (-len(rsrc) % 0x200)
     image_size = rva + ((len(rsrc) + 0xFFF) & ~0xFFF)
     dirs = [(0, 0)] * 16
-    dirs[2] = (rva, len(rsrc) - len(banner))
+    dirs[1] = imp_dir
+    dirs[2] = (rva, rsrc_len)
     optional = struct.pack("<HBBIIIIIQIIHHHHHHIIIIHHQQQQII",
                            0x20B, 14, 0, 0, len(raw), 0, 0, rva, 0x180000000, 0x1000, 0x200,
                            6, 0, 1, 0, 6, 0, 0, image_size, 0x200, 0, 2, 0x160,
@@ -100,6 +135,10 @@ def binary_seeds() -> dict[str, bytes]:
                          b"\0Chrome/108.0.5359.215 Electron/22.3.27\0"),
         "opencv": seed("bin/opencv_world455.dll", "", "OpenCV module", "4.5.5", "opencv_world455.dll",
                        b"\0General configuration for OpenCV 4.5.5 =\0FFmpeg version n4.4.1\0"),
+        "importer": bytes([NAMES.index("bin/target.dll")]) + build_pe(
+            strings("cadwork informatik AG", "cadwork", "30.0.1.0", "target.dll"), (30, 0, 1, 0),
+            imports={"libcrypto-1_1-x64.dll": ["EVP_EncryptInit_ex", "SSL_CTX_new", 42],
+                     "KERNEL32.dll": ["GetProcAddress"]}),
         "not-pe": bytes([0]) + b"MZ" + b"\0" * 100,
     }
 
