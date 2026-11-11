@@ -91,5 +91,7 @@ ENV VULNSCAN_CACHE=/cache \
 
 VOLUME ["/cache"]
 WORKDIR /work
-ENTRYPOINT ["python", "-m", "vulnscan"]
+# -P: never import from the working directory, so a vulnscan/ folder in /work (such as a source checkout)
+# cannot shadow the installed code.
+ENTRYPOINT ["python", "-P", "-m", "vulnscan"]
 CMD ["--help"]
