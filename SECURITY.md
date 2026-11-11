@@ -30,7 +30,12 @@ In scope: vulnerabilities in vulnscan itself and in the published image, for exa
 - leaking credentials from `.env` (SVN, SMTP) into reports, logs, SBOMs or emails;
 - a crafted input that makes a run report **complete** although content was not scanned, defeating the fail-closed
   guarantee;
-- a vulnerable component in the image that is actually reachable through vulnscan.
+- a vulnerable component in the image that is actually reachable through vulnscan;
+- with `--ai` (upgrade advice): sending anything beyond what the README documents (repository names, paths, file
+  names, the functions our binaries import) to a registry, GitHub/GitLab or the model provider; a request to a
+  host outside the allowlist; a model API key or `GITHUB_TOKEN` sent anywhere but its own service;
+- crafted release notes or package metadata that make the advice report a change that is not in the notes, or
+  an *unlikely* verdict without the evidence for it (e.g. by getting around the quote verification).
 
 Out of scope (open a regular issue instead):
 

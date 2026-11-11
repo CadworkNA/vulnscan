@@ -45,6 +45,9 @@ class PEInfo:
     copyright: str = ""
     error: str = ""
     components: list[Component] = field(default_factory=list)
+    # functions imported from non-system DLLs (import + delay-import tables): dll name (lower case) -> names,
+    # used to tell which API of a third-party library our binaries actually call
+    imports: dict[str, list[str]] = field(default_factory=dict)
 
     @property
     def party(self) -> str:
@@ -61,6 +64,51 @@ class PEInfo:
         d = asdict(self)
         d["party"] = self.party
         return d
+
+
+# Windows and C runtime DLLs: their imports say nothing about third-party library use
+SYSTEM_DLL_RE = re.compile(
+    # API sets
+    r"^(?:api-ms-win-|ext-ms-)"
+    # versioned runtimes: msvcp140.dll, vcruntime140_1.dll, mfc140u.dll, d3d11.dll, d3dcompiler_47.dll ...
+    r"|^(?:msvc[rp]|vcruntime|vccorlib|concrt|vcomp|mfc|atl|ucrtbase|d3d|d3dcompiler|dxgi|xinput)[\d_]*[a-z]?d?"
+    r"(?:_[a-z_]+)?\.dll$"
+    # Windows system DLLs, by exact name
+    r"|^(?:kernel32|kernelbase|ntdll|user32|gdi32|gdiplus|advapi32|ole32|oleaut32|shell32|shlwapi|ws2_32|wsock32|"
+    r"comctl32|comdlg32|crypt32|bcrypt|ncrypt|secur32|sspicli|version|winmm|imm32|setupapi|rpcrt4|iphlpapi|dbghelp|"
+    r"psapi|uxtheme|dwmapi|mscoree|opengl32|glu32|winhttp|wininet|urlmon|userenv|netapi32|normaliz|wldap32|mpr|"
+    r"wtsapi32|cfgmgr32|powrprof|propsys|dwrite|d2d1|winspool|winspool\.drv|oleacc|msimg32|usp10|hid|wintrust|"
+    r"dnsapi|mswsock|avrt|mfplat|mfreadwrite|windowscodecs|shcore|authz|uiautomationcore|odbc32|msi|msvcrt|"
+    r"oledlg|olepro32|rasapi32|pdh|wevtapi|dxva2|evr|mf|ksuser|setupapi|devobj|netutils|srvcli)\.(?:dll|drv)$",
+    re.I)
+_DLL_NAME_RE = re.compile(r"^[\w.+ -]{1,128}$")
+MAX_IMPORT_DLLS = 256
+MAX_IMPORT_NAMES = 8192
+
+
+def _imports(pe) -> dict[str, list[str]]:
+    """Imported functions per non-system DLL, bounded (a hostile file can declare any number of imports)."""
+    out: dict[str, list[str]] = {}
+    seen: dict[str, set[str]] = {}
+    total = 0
+    for attr in ("DIRECTORY_ENTRY_IMPORT", "DIRECTORY_ENTRY_DELAY_IMPORT"):
+        for entry in getattr(pe, attr, None) or []:
+            dll = _clean(getattr(entry, "dll", b"")).lower()
+            if not _DLL_NAME_RE.match(dll) or SYSTEM_DLL_RE.match(dll):
+                continue
+            if dll not in out and len(out) >= MAX_IMPORT_DLLS:
+                continue
+            names, have = out.setdefault(dll, []), seen.setdefault(dll, set())
+            for imp in getattr(entry, "imports", None) or []:
+                if total >= MAX_IMPORT_NAMES:
+                    return out
+                name = _clean(imp.name)[:256] if imp.name else (
+                    f"#{imp.ordinal}" if isinstance(imp.ordinal, int) else "")
+                if name and name not in have:
+                    names.append(name)
+                    have.add(name)
+                    total += 1
+    return out
 
 
 MACHINES = {0x14C: "x86", 0x8664: "x64", 0xAA64: "arm64", 0x1C0: "arm", 0x200: "ia64"}
@@ -83,7 +131,8 @@ def _numeric_version(v: str) -> str:
     return ".".join(parts)
 
 
-def read_pe(abs_path: str, display_path: str, size: int) -> PEInfo:
+def read_pe(abs_path: str, display_path: str, size: int, imports: bool = False) -> PEInfo:
+    """Version resource and identification; with imports=True also the import tables (only --ai uses them)."""
     info = PEInfo(path=display_path, size=size)
     try:
         pe = pefile.PE(abs_path, fast_load=True)
@@ -121,6 +170,13 @@ def read_pe(abs_path: str, display_path: str, size: int) -> PEInfo:
         info.copyright = strings.get("LegalCopyright", "")
     except Exception as exc:  # noqa: BLE001
         info.error = f"partial parse: {exc}"[:200]
+    try:
+        if imports:
+            pe.parse_data_directories(directories=[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_IMPORT"],
+                                                   pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT"]])
+            info.imports = _imports(pe)
+    except Exception as exc:  # noqa: BLE001 - imports only feed the upgrade advice; never fail the analysis
+        info.error = (info.error + f" imports not read: {exc}").strip()[:300]
     finally:
         pe.close()
     try:

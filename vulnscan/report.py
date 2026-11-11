@@ -4,6 +4,9 @@ Sheets
   Summary          KPIs, per-repository breakdown, chart, top risks, methodology
   Findings         one row per (repository, file, vulnerability) - the full detail
   Vulnerabilities  one row per distinct vulnerability + affected component
+  Upgrades         per vulnerable component: the lowest version fixing all of its vulnerabilities
+                   (+ AI upgrade advice with --ai)
+  Upgrade changes  with --ai: every documented change between installed and target, with its quote
   Components       every identified third-party component and its exposure
   End of Life      unsupported runtimes / libraries
   Binaries         every executable shipped, with vendor metadata and review flag
@@ -153,7 +156,7 @@ class Report:
 
     # ------------------------------------------------------------------
     def build(self, meta: dict, findings: list[dict], components: list[dict], eol: list[dict],
-              binaries: list[dict], coverage: list[dict]) -> Path:
+              binaries: list[dict], coverage: list[dict], upgrades: list[dict] = ()) -> Path:
         findings = sorted(findings, key=lambda f: (PRIO.index(f["priority"]), SEV_RANK[f["severity"]],
                                                    -(f["cvss_score"] or 0), f["repo"], f["path"], f["vuln_id"]))
         uniq = self._unique_vulns(findings)
@@ -161,6 +164,9 @@ class Report:
         self._summary(meta, findings, uniq, comp_rows, eol, binaries, coverage)
         self._findings(findings)
         self._vulns(uniq)
+        self._upgrades(upgrades)
+        if any(u.get("advice") for u in upgrades):
+            self._upgrade_changes(upgrades)
         self._components(comp_rows)
         self._eol(eol)
         self._binaries(binaries)
@@ -385,7 +391,17 @@ class Report:
                          "P3 = High/Medium.  P4 = Low/Negligible/Unknown."),
             ("Confidence", "high = exact package/version evidence; medium = CPE/name-based match that may need "
                            "confirmation (e.g. vendor-patched builds)."),
+            ("Upgrades", "Per component: the lowest version that fixes all of its reported vulnerabilities (on the "
+                         "installed release line when one exists) and the size of the step (patch/minor/major)."),
         ]
+        ai = meta.get("ai")
+        if ai:
+            method.append(("AI advice", "AI-assisted, verify before acting. Release notes, changelogs and migration "
+                                        "guides between the installed and target version are read by "
+                                        f"{ai.get('model', '?')}; every change it reports quotes the notes and is "
+                                        "dropped if the quote is not found in them. The verdict is computed from "
+                                        "those changes, the requirement checks and the notes' coverage; 'affects' "
+                                        "compares them with the functions our binaries import, locally."))
         for k, v in method:
             r += 1
             ws.write(r, 1, k, F["bold"])
@@ -399,6 +415,14 @@ class Report:
             r += 1
             ws.write(r, 1, k, F["bold"])
             ws.merge_range(r, 2, r, 12, clean(v), F["muted"])
+        if ai:
+            r += 1
+            ws.write(r, 1, "AI model", F["bold"])
+            ws.merge_range(r, 2, r, 12, clean(
+                f"{ai.get('model', '?')} (prompt v{ai.get('prompt_version', '?')}) · {ai.get('upgrades', 0)} "
+                f"upgrades · {ai.get('requests', 0)} requests ({ai.get('cached', 0)} cached) · "
+                f"{ai.get('input_tokens', 0):,} input / {ai.get('output_tokens', 0):,} output tokens"
+                + (f" · FAILED: {ai['error']}" if ai.get("error") else "")), F["muted"])
         ws.activate()
 
     def _cf_cells_bar(self, ws, r1, r2, col, color):
@@ -467,6 +491,66 @@ class Report:
             url = vuln_url(u["vuln_id"])
             if url:
                 ws.write_formula(first + i, 6, f'=HYPERLINK("{url}","{u["vuln_id"]}")', self.f["link"], u["vuln_id"])
+
+    def _upgrades(self, upgrades):
+        ws = self.wb.add_worksheet("Upgrades")
+        cols = [("Priority", 9, "center"), ("Component", 26, "bold"), ("Installed", 14, None),
+                ("Upgrade to", 14, "bold"), ("Step", 9, "center"), ("Vulnerabilities", 10, "int"),
+                ("Fixed by upgrade", 10, "int"), ("KEV", 6, "int"), ("Max severity", 11, "center"),
+                ("Ecosystem", 10, None), ("Installed: end of life", 18, None), ("Upgrade: support", 18, None),
+                ("Notes", 70, "wrap"), ("Files", 7, "int"), ("Repositories", 26, None), ("PURL / CPE", 50, "mono")]
+        rows = [[u["priority"], clean(u["component"]), clean(u["version"]),
+                 clean(u["target_label"]), u["step"], u["vulns"], u["fixed_by_target"], u["kev"],
+                 u["severity"].title(), clean(u["ecosystem"]), u["installed_eol"], u["target_eol"],
+                 clean(u["note"], 2000), u["files"], ", ".join(u["repos"]), clean(u["id"])]
+                for u in upgrades]
+        advised = any(u.get("advice") for u in upgrades)
+        if advised:
+            # AI columns right after the step, where they are read together
+            cols[5:5] = [("Breaking changes (AI-assisted)", 12, "center"), ("Affects our binaries", 40, "wrap"),
+                         ("Advice (AI-generated, verify)", 80, "wrap"), ("Requirements", 40, "wrap"),
+                         ("Release notes", 11, "center"), ("Documented changes", 10, "int"),
+                         ("Sources", 60, "muted")]
+            for row, u in zip(rows, upgrades, strict=True):
+                a = u.get("advice") or {}
+                advice = a.get("summary", "") + "".join(f"\n• {m}" for m in a.get("migration", []))
+                if a.get("problems"):
+                    advice += "\n(" + "; ".join(a["problems"][:3]) + ")"
+                reqs = "\n".join(r["text"] + (f" - {r['violated']}" if r.get("violated") else "")
+                                 for r in a.get("requirements", []))
+                row[5:5] = [a.get("verdict", ""), clean(a.get("affects", ""), 2000), clean(advice, 4000),
+                            clean(reqs, 2000), a.get("coverage", ""), len(a.get("changes", [])),
+                            clean("\n".join(s["url"] for s in a.get("sources", [])), 2000)]
+        first, last = self._table(ws, "Upgrades", cols, rows, freeze_cols=2)
+        self._cf_prio(ws, first, last, 0)
+        self._cf_sev(ws, first, last, 15 if advised else 8)
+        if last >= first and advised:
+            for value, fmt in (('"likely"', self.sev_fmt["HIGH"]), ('"possible"', self.sev_fmt["MEDIUM"]),
+                               ('"unknown"', self.sev_fmt["UNKNOWN"])):
+                ws.conditional_format(first, 5, last, 5, {"type": "cell", "criteria": "==", "value": value,
+                                                         "format": fmt})
+            ws.conditional_format(first, 6, last, 6, {"type": "text", "criteria": "begins with", "value": "yes",
+                                                     "format": self.f["bad"]})
+        if last >= first:
+            for col, value in ((4, '"major"'), (4, '"unknown"')):
+                ws.conditional_format(first, col, last, col, {"type": "cell", "criteria": "==", "value": value,
+                                                              "format": self.f["bad"]})
+            ws.conditional_format(first, 3, last, 3, {"type": "cell", "criteria": "==",
+                                                     "value": '"no fix available"', "format": self.f["bad"]})
+
+    def _upgrade_changes(self, upgrades):
+        ws = self.wb.add_worksheet("Upgrade changes")
+        cols = [("Component", 24, "bold"), ("Installed", 12, None), ("Upgrade to", 12, None),
+                ("Kind", 12, "center"), ("Since", 10, "center"), ("Change (AI-generated)", 60, "wrap"),
+                ("Quote from the release notes", 80, "wrap"), ("Source", 40, "muted")]
+        rows = [[clean(u["component"]), clean(u["version"]), clean(u["target"]), c["kind"], clean(c["version"]),
+                 clean(c["summary"], 1000), clean(c["quote"], 2000), clean(c["source"], 500)]
+                for u in upgrades for c in (u.get("advice") or {}).get("changes", [])]
+        first, last = self._table(ws, "UpgradeChanges", cols, rows, freeze_cols=1)
+        if last >= first:
+            for value in ('"breaking"', '"removed"', '"abi"'):
+                ws.conditional_format(first, 3, last, 3, {"type": "cell", "criteria": "==", "value": value,
+                                                         "format": self.f["bad"]})
 
     def _components(self, comp_rows):
         ws = self.wb.add_worksheet("Components")

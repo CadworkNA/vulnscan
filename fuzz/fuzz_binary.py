@@ -27,13 +27,16 @@ def TestOneInput(data: bytes) -> None:
     name, content = NAMES[data[0] % len(NAMES)], data[1:]
     with open(TARGET, "wb") as fh:
         fh.write(content)
-    info = stage._analyze_job((TARGET, name, len(content), "pe"))
+    info = stage._analyze_job((TARGET, name, len(content), "pe", True))  # with import tables (--ai)
     assert isinstance(info, pe.PEInfo)
     assert isinstance(info.error, str) and len(info.error) <= 300, info.error
     for c in info.components:
         assert c.vendor and c.product and c.version and c.rule, c
         assert all(isinstance(x, str) for x in (c.vendor, c.product, c.version, c.rule)), c
         assert c.confidence in ("high", "medium"), c
+    assert len(info.imports) <= pe.MAX_IMPORT_DLLS, len(info.imports)
+    assert sum(len(v) for v in info.imports.values()) <= pe.MAX_IMPORT_NAMES
+    assert all(isinstance(k, str) and all(isinstance(n, str) and n for n in v) for k, v in info.imports.items())
     assert info.to_dict()["party"] in ("first-party", "microsoft", "third-party", "unknown")
 
 

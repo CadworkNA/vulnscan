@@ -23,7 +23,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from . import __version__, enrich, notify, report, sbom, scanners, stage, svn, update
+from . import __version__, advisor, enrich, notify, report, sbom, scanners, stage, svn, update, upgrade
 from .schedule import Cron
 from .util import (
     MARK_DONE,
@@ -84,6 +84,10 @@ def build_parser(repo_names: list[str]) -> argparse.ArgumentParser:
                    help="also write a CycloneDX 1.6 SBOM (+ vulnerabilities) per repository next to the report")
     o.add_argument("--email", action="store_true",
                    help="email the summary + report (SMTP_* settings, see README)")
+    o.add_argument("--ai", action="store_true",
+                   help="AI upgrade advice: breaking changes between the installed and the fixed version, from "
+                        "release notes, requirements and the functions our binaries import (VULNSCAN_AI_MODEL; "
+                        "sends public component names and versions to registries, GitHub and the model provider)")
     o.add_argument("--schedule", metavar="CRON", default="",
                    help="keep running and scan on this cron schedule, e.g. '0 2 * * 1' "
                         "(Mondays 02:00, container TZ)")
@@ -216,7 +220,7 @@ def scan_repo(repo: svn.Repo, args, evidence: Path):
 
     with stage_ctx("staging, archive extraction & binary analysis", f"stage:{repo.name}"):
         st = stage.build(repo.name, repo.checkout, extract=not args.no_extract, hash_files=not args.no_hash,
-                         jobs=args.jobs)
+                         jobs=args.jobs, imports=getattr(args, "ai", False))
     sha = {f.path: f.sha256 for f in st.files}
     kind = {f.path: f.kind for f in st.files}
     open_gaps, acknowledged = [], []
@@ -314,7 +318,7 @@ def snapshot(name: str):
         console.save_svg(str(Path(rec) / f"{name}.svg"), title="vulnscan", clear=True)
 
 
-def summarize(findings, coverage, eol, repo_names, run_problems=()) -> dict:
+def summarize(findings, coverage, eol, repo_names, run_problems=(), upgrades=()) -> dict:
     """One summary model shared by the console output and the email.
 
     status_ok is True only when every repository was scanned by every engine, the
@@ -380,6 +384,15 @@ def summarize(findings, coverage, eol, repo_names, run_problems=()) -> dict:
         "top_components": [{"name": c["names"].most_common(1)[0][0], "version": v, "vulns": len(c["ids"]),
                             "critical": len(c["sev"]["CRITICAL"]), "high": len(c["sev"]["HIGH"]),
                             "kev": len(c["kev"]), "files": len(c["files"])} for (_, v), c in top[:12]],
+        "upgrades": [{"component": u["component"], "version": u["version"], "target": u["target"],
+                      "step": u["step"], "vulns": u["vulns"], "kev": u["kev"], "priority": u["priority"],
+                      "state": u["state"], "label": "no fix" if u["state"] == "no fix" else "verify match",
+                      "verdict": (u.get("advice") or {}).get("verdict", ""),
+                      "affects": (u.get("advice") or {}).get("affects", "")} for u in upgrades],
+        "upgrade_counts": {"total": len(upgrades), "major": sum(1 for u in upgrades if u["step"] == "major"),
+                           "no_fix": sum(1 for u in upgrades if u["state"] == "no fix"),
+                           "likely": sum(1 for u in upgrades if (u.get("advice") or {}).get("verdict") == "likely"),
+                           "advised": sum(1 for u in upgrades if u.get("advice"))},
     }
 
 
@@ -488,6 +501,32 @@ def final_summary(s: dict, report_path: str, evidence: str, duration: str):
         console.print(t3)
         _more(SUMMARY_ROWS, len(s["kev_list"]), "Vulnerabilities")
 
+    if s.get("upgrades"):
+        console.print()
+        uc = s["upgrade_counts"]
+        advised = uc["advised"] > 0
+        t5 = _section(f"Upgrade paths ({uc['total']:,})",
+                      f"{uc['major']:,} major, {uc['no_fix']:,} without a fix"
+                      + (f", {uc['likely']:,} likely breaking (AI-assisted, verify)" if advised else ""))
+        t5.add_column("Component", style="bold", ratio=1, no_wrap=True, overflow="ellipsis")
+        t5.add_column("Installed", style="grey62", no_wrap=True)
+        t5.add_column("Upgrade to", style="bold", no_wrap=True)
+        t5.add_column("Step", no_wrap=True)
+        t5.add_column("Vulns", justify="right")
+        t5.add_column("KEV", justify="right", style="bold red")
+        if advised:
+            t5.add_column("Breaking", no_wrap=True)
+        styles = {"major": "bold red", "unknown": "yellow", "likely": "bold red", "possible": "yellow",
+                  "unlikely": "green"}
+        for u in s["upgrades"][:SUMMARY_ROWS]:
+            row = [u["component"], u["version"], u["target"] or Text(u["label"], "bold red" if u["state"] == "no fix" else "yellow"),
+                   Text(u["step"], styles.get(u["step"], "")), f"{u['vulns']:,}", _n(u["kev"], "bold red")]
+            if advised:
+                row.append(Text(u["verdict"], styles.get(u["verdict"], "")))
+            t5.add_row(*row)
+        console.print(t5)
+        _more(SUMMARY_ROWS, len(s["upgrades"]), "Upgrades")
+
     if s["eol_items"]:
         console.print()
         t4 = _section(f"End-of-life components ({len(s['eol_items']):,})", "no more security fixes")
@@ -501,9 +540,14 @@ def final_summary(s: dict, report_path: str, evidence: str, duration: str):
         _more(SUMMARY_ROWS, len(s["eol_items"]), "End of Life")
 
     console.print()
+    ai = s.get("ai")
+    ai_line = (("\n", ("AI        ", "bold"),
+                f"{ai.get('model', '?')} · {ai.get('requests', 0):,} requests ({ai.get('cached', 0):,} cached) · "
+                f"{ai.get('input_tokens', 0):,} input / {ai.get('output_tokens', 0):,} output tokens")
+               if ai else ())
     console.print(Panel(Text.assemble(("Report    ", "bold"), (report_path, "cyan"), "\n",
                                       ("Evidence  ", "bold"), (evidence, "grey62"), "\n",
-                                      ("Duration  ", "bold"), duration),
+                                      ("Duration  ", "bold"), duration, *ai_line),
                         border_style="green" if s["status_ok"] else "yellow", box=box.ROUNDED, expand=False))
     snapshot("results")
 
@@ -603,6 +647,14 @@ def _run(args, repos, notes, argv, started, run_id, sel_name, evidence) -> int:
         per_file = Counter((f["repo"], f["path"]) for f in merged)
         for b in all_binaries:
             b["findings"] = per_file.get((b["repo"], b["path"]), 0)
+        upgrades = upgrade.plan(merged, eol)
+        log.info("%d upgrade paths: %d major, %d without a fixed version", len(upgrades),
+                 sum(1 for u in upgrades if u["step"] == "major"), sum(1 for u in upgrades if u["state"] == "no fix"),
+                 extra={"stage": "enrich"})
+    ai_info = None
+    if args.ai:
+        with stage_ctx("AI upgrade advice (release notes, requirements, our imports)", "advice"):
+            ai_info = advisor.advise(upgrades, all_binaries, all_components, args.offline, args.ai_model)
 
     finished = datetime.now(UTC).astimezone()
     duration = fmt_dur(time.monotonic() - t0)
@@ -614,12 +666,13 @@ def _run(args, repos, notes, argv, started, run_id, sel_name, evidence) -> int:
         "evidence_dir": host_path(evidence),
         "repos": [{"name": n, "revision": repos[n].revision, "url": repos[n].url} for n in args.selected],
         "tools": {"vulnscan": __version__, **tools}, "databases": databases, "notes": list(run_problems),
-        "incomplete": False,
+        "incomplete": False, "ai": ai_info,
     }
-    summary = summarize(merged, coverage, eol, args.selected, run_problems)
+    summary = summarize(merged, coverage, eol, args.selected, run_problems, upgrades)
+    summary["ai"] = ai_info
     meta["incomplete"] = not summary["status_ok"]
     with stage_ctx(f"writing Excel report ({len(merged):,} findings)", "report"):
-        report.Report(report_path).build(meta, merged, all_components, eol, all_binaries, coverage)
+        report.Report(report_path).build(meta, merged, all_components, eol, all_binaries, coverage, upgrades)
         log.info("report written: %s (%s)", host_path(report_path), fmt_size(report_path.stat().st_size),
                  extra={"stage": "report"})
 
@@ -694,6 +747,13 @@ def main(argv: list[str] | None = None) -> int:
             notify.config()
         except notify.EmailConfigError as exc:
             log.error("--email: %s", exc)
+            return 2
+    args.ai_model = None
+    if args.ai:
+        try:
+            args.ai_model = advisor.config()
+        except advisor.AIConfigError as exc:
+            log.error("--ai: %s", exc)
             return 2
     if not args.schedule:
         return run_once(args, repos, notes, argv)

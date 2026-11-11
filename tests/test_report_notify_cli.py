@@ -55,7 +55,7 @@ def workbook(tmp_path):
 
 
 def test_report_sheets_and_rows(workbook):
-    assert workbook.sheetnames == ["Summary", "Findings", "Vulnerabilities", "Components", "End of Life",
+    assert workbook.sheetnames == ["Summary", "Findings", "Vulnerabilities", "Upgrades", "Components", "End of Life",
                                    "Binaries", "Coverage"]
     rows = list(workbook["Findings"].iter_rows(values_only=True))
     assert len(rows) == 1 + len(FINDINGS)

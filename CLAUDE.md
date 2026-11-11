@@ -10,6 +10,11 @@ for usage, architecture (Development section) and releases; this file lists what
   *incomplete* (exit code 3), never as an all-clear. Do not swallow exceptions or default to empty results.
 - **Untrusted input.** Scanned files are hostile: extraction stays inside the scan folder, symlinks are recorded,
   never followed, and nothing is processed as root (see `util.drop_privileges`).
+- **AI is advisory and opt-in.** `--ai` (upgrade advice) never changes completeness or the exit code, and a
+  failure or missing evidence must read as *unknown*/*not analysed*, never as safe. The model only extracts quoted
+  changes (verified against the notes); verdicts and "affects our binaries" are computed in code. Only public
+  component names/versions leave the machine, only to `evidence.ALLOWED_HOSTS`; release notes are untrusted input.
+  Use Pydantic AI, never a provider SDK directly. Tests use `FunctionModel` and a fake web, never the network.
 - **Reproducible toolchain.** Every scanner in the `Containerfile` is pinned to a version and SHA-256; Python
   packages resolve as of `PY_DEPS_DATE`.
 
@@ -36,6 +41,7 @@ Lint: `uv run --with ruff ruff check .` (line length 120, rules in `pyproject.to
 - **Scanner upgrade:** version and SHA-256 in the `Containerfile` (from the release's checksum file), run the tests,
   refresh `tests/fixtures` if the output format changed. Contract tests must keep parsing real scanner output.
 - **Identification rules** go in `pe.py` (version resources) or `binsig.py` (embedded strings), each with a test.
+  **Release-note sources** for native libraries go in `evidence.NATIVE`, checked against the real changelog.
 - **Commits** use conventional prefixes (`feat:`, `fix:`, `ci:`, `build(deps):`, `docs:`, `chore:`). `main` only
   accepts squash-merged pull requests with a passing `image` check.
 - **Versions** follow semver (README, *Versions and releases*): the version lives in both `pyproject.toml` and

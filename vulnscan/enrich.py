@@ -182,6 +182,34 @@ def _match_cycle(releases: list[dict], version: str):
     return best
 
 
+def cycle_status(rel: dict) -> tuple[str, str] | None:
+    """(status, date) of an endoflife.date release cycle, None while it is fully supported."""
+    eol = rel.get("eolFrom") or ""
+    eoes = rel.get("eoesFrom") or ""
+    if rel.get("isEol") and (not eoes or rel.get("isEoes")):
+        return "End of life", max(eol, eoes)
+    if rel.get("isEol"):
+        # public support ended, paid/extended (e.g. commercial LTS) still running
+        return f"Extended support only (until {eoes})", eol
+    if rel.get("isEoas"):
+        return "Security fixes only", rel.get("eoasFrom") or ""
+    return None
+
+
+def eol_slug(name: str) -> str | None:
+    return EOL_PRODUCTS.get(name.lower().split("/")[-1])
+
+
+def cached_releases(slug: str) -> list[dict] | None:
+    """Release cycles of an endoflife.date product from the cache eol_status() filled; None if not cached."""
+    path = DB_CACHE / "eol" / f"{slug}.json"
+    if not path.exists():
+        return None
+    d = load_json(path, {})
+    releases = ((d or {}).get("result") or {}).get("releases") if isinstance(d, dict) else None
+    return releases if isinstance(releases, list) and releases else None
+
+
 def eol_status(components: list[dict], offline: bool) -> tuple[list[dict], list[str]]:
     """components: [{repo, name, version, path, type}] -> (EOL rows, problems)."""
     rows, problems = [], []
@@ -213,19 +241,10 @@ def eol_status(components: list[dict], offline: bool) -> tuple[list[dict], list[
             continue
         version = re.sub(r"^v", "", c["version"])
         rel = _match_cycle(data[slug], version)
-        if not rel:
+        st = cycle_status(rel) if rel else None
+        if not st:
             continue
-        eol = rel.get("eolFrom") or ""
-        eoes = rel.get("eoesFrom") or ""
-        if rel.get("isEol") and (not eoes or rel.get("isEoes")):
-            status, date = "End of life", max(eol, eoes)
-        elif rel.get("isEol"):
-            # public support ended, paid/extended (e.g. commercial LTS) still running
-            status, date = f"Extended support only (until {eoes})", eol
-        elif rel.get("isEoas"):
-            status, date = "Security fixes only", rel.get("eoasFrom") or ""
-        else:
-            continue
+        status, date = st
         latest = (rel.get("latest") or {}).get("name", "")
         rows.append({**c, "product": slug, "cycle": rel.get("name"), "eol_date": date,
                      "latest": latest, "status": status, "source": "endoflife.date"})
