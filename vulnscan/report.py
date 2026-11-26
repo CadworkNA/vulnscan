@@ -357,6 +357,9 @@ class Report:
             if c.get("symlinks"):
                 notes.append(f"{c['repo']}: {len(c['symlinks'])} symbolic link(s) were recorded but not followed "
                              f"(see Coverage)")
+            if c.get("excluded"):
+                notes.append(f"{c['repo']}: {len(c['excluded'])} path(s) ({sum(n for _, n, _ in c['excluded']):,} "
+                             f"files) excluded by vulnscan-exclude.json - not scanned (see Coverage)")
         review = sum(1 for b in binaries if b.get("review"))
         if review:
             notes.append(f"{review} third-party binaries could not be matched to a known component; "
@@ -630,6 +633,8 @@ class Report:
               for a, why, reason in c.get("archives_acknowledged", [])]),
             ("Symbolic links in the repository (recorded, not followed)",
              [(c["repo"], link, "") for c in coverage for link in c.get("symlinks", [])]),
+            ("Excluded paths (vulnscan-exclude.json) - NOT scanned",
+             [(c["repo"], p, f"{n:,} file(s) — {reason}") for c in coverage for p, n, reason in c.get("excluded", [])]),
         ]
         for title, items in sections:
             ws.write(r, 0, title, self.f["h2"])

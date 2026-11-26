@@ -205,6 +205,47 @@ def test_accepted_gaps(tmp_path, monkeypatch):
     assert cli.accepted_gap("tools_2026", "old.zip", gaps) is None
 
 
+def test_load_excludes(tmp_path, monkeypatch):
+    from vulnscan import cli
+    (tmp_path / "vulnscan-exclude.json").write_text(json.dumps([
+        {"path": "implib", "reason": "not shipped"},
+        {"path": "no-reason"},
+        {"path": "/", "reason": "would exclude everything"},
+    ]))
+    excludes, notes = cli.load_excludes(tmp_path)
+    assert excludes == [{"path": "implib", "reason": "not shipped"}]
+    assert len([n for n in notes if "without path and reason" in n]) == 2
+    monkeypatch.setenv("VULNSCAN_EXCLUDE", "not json")
+    excludes, notes = cli.load_excludes(tmp_path)
+    assert excludes == [] and any("cannot parse VULNSCAN_EXCLUDE" in n for n in notes)
+
+
+def test_excluded_by():
+    by_name, by_path = [{"path": "implib", "reason": "a"}], [{"path": "bin/*/implib", "reason": "b"}]
+    assert stage.excluded_by("implib", by_name)
+    assert stage.excluded_by("x/y/ImpLib", by_name)  # any depth, case-insensitive
+    assert not stage.excluded_by("implibs", by_name)
+    assert stage.excluded_by("bin/x64/implib", by_path)
+    assert not stage.excluded_by("implib", by_path)
+    assert stage.excluded_by("a/b.pdb", [{"path": "*.pdb", "reason": "c"}])
+
+
+def test_build_skips_excluded_paths(tmp_path, stage_root):
+    src = tmp_path / "src"
+    for d in ("implib", "bin/ImpLib/x64", "bin/keep"):
+        (src / d).mkdir(parents=True)
+    (src / "implib" / "a.lib").write_bytes(b"!<arch>\n")
+    (src / "bin" / "ImpLib" / "b.lib").write_bytes(b"!<arch>\n")
+    (src / "bin" / "ImpLib" / "x64" / "c.lib").write_bytes(b"!<arch>\n")
+    (src / "bin" / "keep" / "app.dll").write_bytes(b"MZ app")
+    (src / "bin" / "app.pdb").write_bytes(b"pdb")
+    exclude = [{"path": "implib", "reason": "not shipped"}, {"path": "*.PDB", "reason": "symbols"}]
+    res = stage.build("demo", src, jobs=1, hash_files=False, extract=False, exclude=exclude)
+    assert {f.path for f in res.files} == {"bin/keep/app.dll"}
+    assert sorted(res.excluded) == [("bin/ImpLib/", 2, "not shipped"), ("bin/app.pdb", 1, "symbols"),
+                                    ("implib/", 1, "not shipped")]
+
+
 def test_eol_not_tracked_is_not_a_problem(monkeypatch):
     from vulnscan import enrich
     from vulnscan.util import NotFound

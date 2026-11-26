@@ -166,6 +166,25 @@ def list_repos(repos, notes):
 
 
 # ---------------------------------------------------------------------------
+def _load_entries(work: Path, env: str, filename: str, key: str) -> tuple[list, str, list[str]]:
+    """JSON list from $env, else <work>/filename (a {key: [...]} object also works).
+    Returns (entries, source, notes); unparseable input gives no entries and a note."""
+    raw, src = os.environ.get(env, ""), env
+    f = work / filename
+    if not raw and f.is_file():
+        raw, src = f.read_text(encoding="utf-8"), f.name
+    if not raw.strip():
+        return [], src, []
+    try:
+        entries = json.loads(raw)
+        entries = entries.get(key, entries) if isinstance(entries, dict) else entries
+    except ValueError as exc:
+        return [], src, [f"cannot parse {src}: {exc}"]
+    if not isinstance(entries, list):
+        return [], src, [f"{src}: expected a JSON list of entries"]
+    return entries, src, []
+
+
 def load_accepted_gaps(work: Path) -> tuple[list[dict], list[str]]:
     """Known, deliberately accepted coverage gaps (e.g. a password-protected archive).
 
@@ -173,19 +192,9 @@ def load_accepted_gaps(work: Path) -> tuple[list[dict], list[str]]:
       [{"repo": "tools_2026" | "*", "path": "glob", "reason": "why", "expires": "YYYY-MM-DD"}]
     A gap is only accepted with a reason; expired entries no longer match, so the
     run becomes incomplete again until someone re-evaluates it."""
-    raw, src = os.environ.get("VULNSCAN_ACCEPTED_GAPS", ""), "VULNSCAN_ACCEPTED_GAPS"
-    f = work / "vulnscan-accepted-gaps.json"
-    if not raw and f.is_file():
-        raw, src = f.read_text(encoding="utf-8"), f.name
-    if not raw.strip():
-        return [], []
-    try:
-        entries = json.loads(raw)
-        entries = entries.get("gaps", entries) if isinstance(entries, dict) else entries
-    except ValueError as exc:
-        return [], [f"cannot parse {src}: {exc}"]
-    gaps, notes, today = [], [], datetime.now().date().isoformat()
-    for e in entries if isinstance(entries, list) else []:
+    entries, src, notes = _load_entries(work, "VULNSCAN_ACCEPTED_GAPS", "vulnscan-accepted-gaps.json", "gaps")
+    gaps, today = [], datetime.now().date().isoformat()
+    for e in entries:
         if not isinstance(e, dict) or not e.get("path") or not str(e.get("reason", "")).strip():
             notes.append(f"{src}: ignored entry without path and reason: {e!r}")
         elif e.get("expires") and str(e["expires"]) < today:
@@ -198,6 +207,24 @@ def load_accepted_gaps(work: Path) -> tuple[list[dict], list[str]]:
 def accepted_gap(repo: str, path: str, gaps: list[dict]) -> dict | None:
     return next((g for g in gaps if g.get("repo", "*") in ("*", repo) and fnmatch.fnmatchcase(path, g["path"])),
                 None)
+
+
+def load_excludes(work: Path) -> tuple[list[dict], list[str]]:
+    """Paths that are not shipped and must not be scanned (e.g. import libraries).
+
+    From <work>/vulnscan-exclude.json or $VULNSCAN_EXCLUDE:
+      [{"repo": "tools_2026" | "*", "path": "implib" | "bin/*/implib", "reason": "why"}]
+    Matching is done by stage.excluded_by. An entry without path or reason is ignored,
+    so a mistake scans more, never less; excluded paths are listed in the report."""
+    entries, src, notes = _load_entries(work, "VULNSCAN_EXCLUDE", "vulnscan-exclude.json", "exclude")
+    out = []
+    for e in entries:
+        if (not isinstance(e, dict) or not str(e.get("path", "")).strip("/ ")
+                or not str(e.get("reason", "")).strip()):
+            notes.append(f"{src}: ignored entry without path and reason: {e!r}")
+        else:
+            out.append(e)
+    return out, notes
 
 
 def scan_repo(repo: svn.Repo, args, evidence: Path):
@@ -218,9 +245,10 @@ def scan_repo(repo: svn.Repo, args, evidence: Path):
             svn.sync(repo, update=not (args.no_update or args.offline))
         cov.update(revision=repo.revision, last_changed=f"r{repo.last_changed_rev} {repo.last_changed_date}")
 
+    exclude = [e for e in getattr(args, "excludes", []) if e.get("repo", "*") in ("*", repo.name)]
     with stage_ctx("staging, archive extraction & binary analysis", f"stage:{repo.name}"):
         st = stage.build(repo.name, repo.checkout, extract=not args.no_extract, hash_files=not args.no_hash,
-                         jobs=args.jobs, imports=getattr(args, "ai", False))
+                         jobs=args.jobs, imports=getattr(args, "ai", False), exclude=exclude)
     sha = {f.path: f.sha256 for f in st.files}
     kind = {f.path: f.kind for f in st.files}
     open_gaps, acknowledged = [], []
@@ -235,7 +263,7 @@ def scan_repo(repo: svn.Repo, args, evidence: Path):
     cov.update(files=len(st.files), bytes=sum(f.size for f in st.files),
                in_archives=sum(f.in_archive for f in st.files), archives_ok=len(st.archives_ok),
                archives_failed=len(open_gaps), archive_failures=open_gaps,
-               archives_acknowledged=acknowledged, symlinks=st.symlinks,
+               archives_acknowledged=acknowledged, symlinks=st.symlinks, excluded=st.excluded,
                not_archives=len(st.not_archives), binaries=len(st.pe))
     if not st.files:
         raise RuntimeError("no files found to scan (empty checkout or folder) - nothing was scanned")
@@ -571,8 +599,9 @@ def run_once(args, repos, notes, argv) -> int:
     evidence.mkdir(parents=True, exist_ok=True)
     fh = add_logfile(evidence / "scan.log")
     args.accepted_gaps, gap_notes = load_accepted_gaps(WORK)  # re-read every run (scheduler)
+    args.excludes, exclude_notes = load_excludes(WORK)
     try:
-        return _run(args, repos, list(notes) + gap_notes, argv, started, run_id, sel_name, evidence)
+        return _run(args, repos, list(notes) + gap_notes + exclude_notes, argv, started, run_id, sel_name, evidence)
     except Exception as exc:  # noqa: BLE001 - a crash must be loud, never a silent non-report
         log.error("SCAN FAILED: %s", exc, extra={"stage": "main"})
         log.debug(traceback.format_exc(), extra={"stage": "main"})
