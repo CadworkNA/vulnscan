@@ -53,6 +53,34 @@ def test_empty_repository_fails(tmp_path, monkeypatch):
         cli.scan_repo(repo, args, tmp_path / "evidence")
 
 
+def test_everything_excluded_fails(tmp_path, monkeypatch):
+    monkeypatch.setattr(stage, "STAGE", tmp_path / "stage")
+    (tmp_path / "r" / "implib").mkdir(parents=True)
+    (tmp_path / "r" / "implib" / "a.lib").write_bytes(b"!<arch>\n")
+    repo = cli.svn.Repo("r", "local:x", checkout=tmp_path / "r", local=True)
+    args = type("A", (), {"no_extract": False, "no_hash": False, "jobs": 1, "engines": [], "keep_stage": False,
+                          "no_update": False, "offline": False,
+                          "excludes": [{"path": "implib", "reason": "x"}]})()
+    with pytest.raises(RuntimeError, match="nothing was scanned"):
+        cli.scan_repo(repo, args, tmp_path / "evidence")
+
+
+def test_excludes_are_filtered_by_repo(tmp_path, monkeypatch):
+    seen = {}
+
+    def fake_build(*a, exclude=(), **kw):
+        seen["exclude"] = exclude
+        raise RuntimeError("stop")
+    monkeypatch.setattr(stage, "build", fake_build)
+    repo = cli.svn.Repo("app", "local:x", checkout=tmp_path, local=True)
+    mine, everyone = {"repo": "app", "path": "a", "reason": "x"}, {"path": "b", "reason": "x"}
+    args = type("A", (), {"no_extract": False, "no_hash": False, "jobs": 1, "engines": [],
+                          "excludes": [mine, everyone, {"repo": "other", "path": "c", "reason": "x"}]})()
+    with pytest.raises(RuntimeError, match="stop"):
+        cli.scan_repo(repo, args, tmp_path / "evidence")
+    assert seen["exclude"] == [mine, everyone]
+
+
 def test_eol_download_failure_is_a_problem(monkeypatch):
     monkeypatch.setattr(enrich, "cached_download", lambda *a, **k: None)
     rows, problems = enrich.eol_status([{"repo": "r", "name": "python", "version": "3.8.10", "path": "p",

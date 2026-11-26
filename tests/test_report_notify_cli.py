@@ -33,7 +33,8 @@ FINDINGS = [
 COVERAGE = [{"repo": "r1", "url": "https://svn.example.com/r1", "revision": "42", "files": 10, "binaries": 3,
              "components": 2, "engines": {"grype (packages)": {"status": "ok", "duration": "0:01"},
                                          "osv-scanner": {"status": "FAILED", "error": "boom"}},
-             "archive_failures": [("x.zip", "bad")], "archives_failed": 1}]
+             "archive_failures": [("x.zip", "bad")], "archives_failed": 1,
+             "excluded": [("lib/implib/", 12, "import libraries, not shipped")]}]
 EOL = [{"repo": "r1", "name": "python", "version": "3.8.10", "path": "python38.dll", "type": "binary",
         "product": "python", "cycle": "3.8", "eol_date": "2024-10-07", "latest": "3.8.20",
         "status": "End of life", "source": "endoflife.date"}]
@@ -80,6 +81,13 @@ def test_report_neutralises_formula_injection(workbook):
 def test_report_flags_incomplete_scan(workbook):
     text = " ".join(str(c.value) for row in workbook["Summary"].iter_rows() for c in row if c.value)
     assert "Incomplete" in text and "osv-scanner" in text
+
+
+def test_report_lists_excluded_paths(workbook):
+    summary = " ".join(str(c.value) for row in workbook["Summary"].iter_rows() for c in row if c.value)
+    assert "1 path(s) (12 files) excluded by vulnscan-exclude.json" in summary
+    rows = [r for r in workbook["Coverage"].iter_rows(values_only=True) if r[1] == "lib/implib/"]
+    assert rows and rows[0][0] == "r1" and rows[0][3] == "12 file(s) — import libraries, not shipped"
 
 
 def test_report_handles_empty_scan(tmp_path):

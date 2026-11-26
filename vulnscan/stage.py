@@ -9,12 +9,14 @@ item inside an archive reads e.g.  setup/redist.zip!/bin/libssl-1_1-x64.dll
 """
 from __future__ import annotations
 
+import fnmatch
 import hashlib
 import os
 import re
 import shutil
 import subprocess
 import time
+from collections.abc import Sequence
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, ThreadPoolExecutor, as_completed, wait
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -70,6 +72,7 @@ class StageResult:
     archives_partial: list[tuple[str, str]] = field(default_factory=list)  # extracted with errors (warning)
     not_archives: list[str] = field(default_factory=list)  # archive extension, other content
     symlinks: list[str] = field(default_factory=list)  # links in the checkout (recorded, not followed)
+    excluded: list[tuple[str, int, str]] = field(default_factory=list)  # (path, files, reason): exclude list
 
 
 _MSI_DIR = re.compile(r"(?<=/)\.:(?=[^/])|(?<=/)\.:/")
@@ -142,11 +145,33 @@ def _archive_type(path: str, head: bytes) -> str | None:
     return None
 
 
-def _link_tree(src: Path, dst: Path, links: list[str]) -> int:
-    """Hardlink (or copy) every regular file of src into dst, skipping .svn.
-    Symbolic links are recorded in `links` and never followed: a link can point
-    outside the checkout, and its target - if shipped - is scanned where it lives."""
+def excluded_by(rel: str, exclude: Sequence[dict]) -> dict | None:
+    """The exclude entry matching a checkout-relative path, case-insensitively: a pattern without '/'
+    matches the name of a file or folder at any depth, one with '/' the whole relative path."""
+    rel = rel.lower()
+    name = rel.rsplit("/", 1)[-1]
+    for e in exclude:
+        pat = str(e["path"]).strip("/").lower()
+        if fnmatch.fnmatchcase(rel if "/" in pat else name, pat):
+            return e
+    return None
+
+
+def _count_files(path: str) -> int:
+    return sum(len(files) for _, _, files in os.walk(path))
+
+
+def _link_tree(src: Path, dst: Path, links: list[str], exclude: Sequence[dict] = (),
+               excluded: list[tuple[str, int, str]] | None = None) -> int:
+    """Hardlink (or copy) every regular file of src into dst, skipping .svn and excluded paths
+    (recorded in `excluded`). Symbolic links are recorded in `links` and never followed: a link can
+    point outside the checkout, and its target - if shipped - is scanned where it lives."""
     n = 0
+    excluded = excluded if excluded is not None else []
+
+    def rel_of(rel: str, name: str) -> str:
+        return os.path.normpath(os.path.join(rel, name)).replace(os.sep, "/")
+
     for dirpath, dirnames, filenames in os.walk(src):
         dirnames[:] = [d for d in dirnames if d != ".svn"]
         rel = os.path.relpath(dirpath, src)
@@ -154,12 +179,18 @@ def _link_tree(src: Path, dst: Path, links: list[str]) -> int:
         target_dir.mkdir(parents=True, exist_ok=True)
         for d in list(dirnames):
             if os.path.islink(os.path.join(dirpath, d)):
-                links.append(os.path.normpath(os.path.join(rel, d)).replace(os.sep, "/"))
+                links.append(rel_of(rel, d))
+                dirnames.remove(d)
+            elif (e := excluded_by(rel_of(rel, d), exclude)) is not None:
+                excluded.append((rel_of(rel, d) + "/", _count_files(os.path.join(dirpath, d)), e["reason"]))
                 dirnames.remove(d)
         for f in filenames:
             s = os.path.join(dirpath, f)
             if os.path.islink(s):
-                links.append(os.path.normpath(os.path.join(rel, f)).replace(os.sep, "/"))
+                links.append(rel_of(rel, f))
+                continue
+            if (e := excluded_by(rel_of(rel, f), exclude)) is not None:
+                excluded.append((rel_of(rel, f), 1, e["reason"]))
                 continue
             t = target_dir / f
             try:
@@ -371,7 +402,7 @@ def _extract_all(root: Path, files_dir: Path, res: StageResult, tag: dict, worke
 
 
 def build(repo_name: str, checkout: Path, *, extract: bool = True, hash_files: bool = True,
-          jobs: int = os.cpu_count() or 4, imports: bool = False) -> StageResult:
+          jobs: int = os.cpu_count() or 4, imports: bool = False, exclude: Sequence[dict] = ()) -> StageResult:
     tag = {"stage": f"stage:{repo_name}"}
     root = STAGE / repo_name
     if root.exists():
@@ -379,9 +410,14 @@ def build(repo_name: str, checkout: Path, *, extract: bool = True, hash_files: b
     files_dir, arch_dir = root / "files", root / "archives"
     t0 = time.monotonic()
     res = StageResult(root=root)
-    n = _link_tree(checkout, files_dir, res.symlinks)
+    n = _link_tree(checkout, files_dir, res.symlinks, exclude, res.excluded)
     log.info("staged %s files from checkout (hardlinked, .svn excluded) in %.1fs", f"{n:,}",
              time.monotonic() - t0, extra=tag)
+    if res.excluded:
+        log.info("exclude list: %d path(s), %s files not scanned", len(res.excluded),
+                 f"{sum(c for _, c, _ in res.excluded):,}", extra=tag)
+        for path, count, reason in res.excluded:
+            log.debug("excluded %s (%d files): %s", path, count, reason, extra=tag)
     for link in res.symlinks:
         log.warning("symbolic link not followed: %s", link, extra=tag)
 

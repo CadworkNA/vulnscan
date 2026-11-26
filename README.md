@@ -86,7 +86,7 @@ finding can be traced back to the tool and database that produced it.
 | **Components** | Every identified third-party component, how it was identified, its exposure and end-of-life status |
 | **End of Life** | Unsupported runtimes and libraries (endoflife.date; Microsoft Visual C++ runtimes) |
 | **Binaries** | Every executable shipped: vendor, product, versions, signature, SHA-256, identified libraries. Third-party binaries that could not be matched to a known component are flagged **REVIEW** |
-| **Coverage** | What was scanned (files, archives, binaries), engine status and duration per repository, archives that could not be extracted |
+| **Coverage** | What was scanned (files, archives, binaries), engine status and duration per repository, archives that could not be extracted, [excluded paths](#excluded-paths) |
 
 <p align="center"><img src="docs/images/excel-summary.png" alt="Summary sheet" width="900"></p>
 <p align="center"><img src="docs/images/excel-findings.png" alt="Findings sheet" width="900"></p>
@@ -247,6 +247,7 @@ read from a file with the `_FILE` suffix, e.g. `SMTP_PASSWORD_FILE=/run/secrets/
 | `SMTP_MAX_ATTACHMENT_MB` | larger reports are not attached; the email points to the output folder (default 15) |
 | `VULNSCAN_SCHEDULE` | cron schedule used by `--scheduled` (ignored by normal runs) |
 | `VULNSCAN_ACCEPTED_GAPS` | accepted coverage gaps as JSON, instead of `vulnscan-accepted-gaps.json` ([below](#accepted-coverage-gaps)) |
+| `VULNSCAN_EXCLUDE` | paths that are not shipped, as JSON, instead of `vulnscan-exclude.json` ([below](#excluded-paths)) |
 | `VULNSCAN_UPDATE_CHECK` | `0` to skip the start-up check for a newer vulnscan release (one GitHub request a day, skipped with `--offline`; it only warns, never changes the result) |
 | `VULNSCAN_AI_MODEL` | `--ai` only: Pydantic AI model string, e.g. `anthropic:claude-sonnet-5-5`, plus the provider's key (`ANTHROPIC_API_KEY`) |
 | `GITHUB_TOKEN` | `--ai` only, optional: GitHub token for release notes (higher rate limit; sent to `api.github.com` only) |
@@ -317,6 +318,23 @@ re-evaluates it. Accepted gaps are still listed on the report's Coverage sheet.
 ```
 
 `repo` may be `*`; `path` is a glob on the path shown in the report.
+
+### Excluded paths
+
+Folders that are in the repository but never shipped (e.g. import libraries) can be left out of the scan with
+`vulnscan-exclude.json` in the mounted folder (or `VULNSCAN_EXCLUDE`). Each entry needs a reason; excluded paths
+and their file counts are listed on the Coverage sheet and do not make a run incomplete.
+
+```json
+[
+  {"repo": "*", "path": "implib", "reason": "import libraries, not shipped"},
+  {"repo": "app_2026", "path": "tools/*/testdata", "reason": "test data, not shipped"}
+]
+```
+
+`repo` may be `*` (the default). `path` is a case-insensitive glob on the path in the repository (or `--path`
+folder): without a `/` it matches a folder or file name at any depth, with a `/` the whole path. A matching folder
+is skipped with everything in it. Files inside archives are not affected.
 
 ## Versions and releases
 

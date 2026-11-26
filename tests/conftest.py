@@ -27,6 +27,6 @@ def fixtures() -> Path:
 def _clean_env(monkeypatch):
     for k in list(os.environ):
         if k.startswith(("SMTP_", "SVN_", "VULNSCAN_REPOS", "VULNSCAN_SCHEDULE", "VULNSCAN_RECORD", "VULNSCAN_AI_",
-                         "GITHUB_TOKEN", "ANTHROPIC_", "OPENAI_")):
+                         "VULNSCAN_EXCLUDE", "VULNSCAN_ACCEPTED_GAPS", "GITHUB_TOKEN", "ANTHROPIC_", "OPENAI_")):
             monkeypatch.delenv(k, raising=False)
     monkeypatch.setenv("VULNSCAN_UPDATE_CHECK", "0")  # no GitHub release lookups from cli tests
