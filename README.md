@@ -286,7 +286,7 @@ and what it could not analyse is reported as such.
 [release](https://github.com/CadworkNA/vulnscan/releases) lists its image digest and the image SBOM:
 
 ```sh
-gh attestation verify oci://ghcr.io/cadworkna/vulnscan:1.2.0 --owner CadworkNA
+gh attestation verify oci://ghcr.io/cadworkna/vulnscan:1.3.0 --owner CadworkNA
 ```
 
 Each release also signs the files it attaches (image SBOM, self-scan): the `vulnscan-<version>.sigstore.json`
